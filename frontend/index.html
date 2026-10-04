@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoCap Stocks — Historical Stock Analysis Terminal</title>
+    <meta name="description" content="NoCap Stocks: No fake predictions. Just historical data. Professional dark financial exchange terminal for analyzing historical stock drawdowns and empirical recovery distributions.">
+    
+    <!-- Professional Typography: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js, Hammer.js, and Zoom Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="terminal-app-shell">
+        <!-- ====================================================================
+             TOP BAR (Height: 50px, Clean Wordmark, Large Search, Status & Credits)
+             ==================================================================== -->
+        <header class="terminal-topbar">
+            <!-- Left: Wordmark & Tagline -->
+            <div class="topbar-left">
+                <div class="terminal-logo-box">NC</div>
+                <div class="terminal-title-stack">
+                    <div class="terminal-brand-row">
+                        <span class="brand-text-main">NoCap</span>
+                        <span class="brand-text-badge">STOCKS</span>
+                    </div>
+                    <span class="brand-tagline">Historical Pattern Analysis</span>
+                </div>
+            </div>
+
+            <!-- Center: Large Global Search Field with Autocomplete -->
+            <div class="topbar-center">
+                <div class="terminal-search-bar">
+                    <span class="search-mag-icon">⌕</span>
+                    <input type="text" id="global-search-input" class="global-search-input" placeholder="Search global companies or tickers... (e.g. Apple, TCS, Toyota, Samsung, TSMC, Puma)" autocomplete="off" spellcheck="false">
+                    <span class="search-hotkey">/</span>
+                </div>
+                <div id="global-search-dropdown" class="search-results-dropdown hidden"></div>
+            </div>
+
+            <!-- Right: Status Indicators & AI Credits -->
+            <div class="topbar-right">
+                <div class="status-indicator-pill" title="Real-time / Daily Market Data Provider">
+                    <span class="status-glow-dot green"></span>
+                    <span class="status-label">Data: <strong>yfinance</strong></span>
+                </div>
+                <div class="status-indicator-pill" id="backend-status" title="PostgreSQL Database Connection">
+                    <span class="status-glow-dot green" id="supabase-status-dot"></span>
+                    <span class="status-label" id="supabase-status-text">Supabase: <strong>Connected</strong></span>
+                </div>
+                <button type="button" class="ai-credits-pill-btn" id="header-ai-credits" title="Click to open NoCap AI Assistant">
+                    <span class="ai-bolt-icon">✦</span>
+                    <span class="ai-credits-text">AI: <strong id="top-credits-count">500</strong> / 500 cr</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ====================================================================
+             UPPER TERMINAL WORKSPACE (3-COLUMN: NARROW RAIL, MAIN AREA, MARKETS)
+             ==================================================================== -->
+        <div class="terminal-upper-grid">
+            <!-- 1. LEFT NARROW ICON RAIL (56px) -->
+            <aside class="terminal-rail" aria-label="Terminal Navigation">
+                <div class="rail-nav-group">
+                    <button type="button" class="rail-nav-btn active" id="rail-btn-dashboard" data-tooltip="Dashboard">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="9"></rect>
+                            <rect x="14" y="3" width="7" height="5"></rect>
+                            <rect x="14" y="12" width="7" height="9"></rect>
+                            <rect x="3" y="16" width="7" height="5"></rect>
+                        </svg>
+                        <span class="rail-tooltip">Dashboard</span>
+                    </button>
+                    <button type="button" class="rail-nav-btn" id="rail-btn-analysis" data-tooltip="Historical Analysis">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        <span class="rail-tooltip">Analysis</span>
+                    </button>
+                    <button type="button" class="rail-nav-btn" id="rail-btn-events" data-tooltip="Historical Events">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span class="rail-tooltip">Events</span>
+                    </button>
+                    <button type="button" class="rail-nav-btn" id="rail-btn-watchlist" data-tooltip="Markets Watchlist">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                        <span class="rail-tooltip">Watchlist</span>
+                    </button>
+                    <button type="button" class="rail-nav-btn" id="rail-btn-ai" data-tooltip="NoCap AI Assistant">
+                        <span style="font-size: 15px; color: var(--accent-blue);">✦</span>
+                        <span class="rail-tooltip">NoCap AI</span>
+                    </button>
+                    <button type="button" class="rail-nav-btn" id="rail-btn-settings" data-tooltip="Terminal Settings">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        <span class="rail-tooltip">Config</span>
+                    </button>
+                </div>
+                <div class="rail-bottom-indicator">
+                    <span class="rail-live-tag">LIVE</span>
+                </div>
+            </aside>
+
+            <!-- 2. MAIN TERMINAL ANALYSIS AREA -->
+            <main class="terminal-main-content">
+                <!-- Status/Error Alert (Dynamic) -->
+                <div id="status-message" class="terminal-notification-strip hidden"></div>
+
+                <!-- SECTION A: COMPANY HEADER PANEL -->
+                <section class="company-header-strip">
+                    <div class="company-profile-box">
+                        <div class="company-logo-slot" id="company-header-logo-wrap">
+                            <!-- Injected by CompanyLogo.js -->
+                        </div>
+                        <div class="company-info-stack">
+                            <div class="company-name-row">
+                                <h1 class="company-heading-title" id="company-header-name">Apple Inc.</h1>
+                                <span class="company-ticker-tag" id="header-ticker">AAPL</span>
+                                <span class="company-exchange-tag" id="company-header-exchange">NASDAQ</span>
+                                <span class="company-country-tag" id="company-header-country">United States</span>
+                            </div>
+                            <div class="company-sub-meta">
+                                <span id="company-header-date">Latest available historical price: Sep 30, 2026</span>
+                                <span class="meta-sep">•</span>
+                                <span id="company-header-datapoints">2,512 trading sessions evaluated</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="company-price-box">
+                        <div class="price-quote-row">
+                            <span class="price-quote-value" id="company-header-price">$227.63</span>
+                            <span class="price-change-tag positive" id="company-header-change">+0.41%</span>
+                        </div>
+                        <span class="price-quote-sub">Latest completed trading session (Yahoo Finance)</span>
+                    </div>
+                </section>
+
+                <!-- SECTION B: LARGE HISTORICAL PRICE CHART -->
+                <section class="terminal-chart-panel">
+                    <div class="chart-header-bar">
+                        <div class="chart-meta-left">
+                            <span class="chart-symbol-badge" id="chart-symbol">AAPL</span>
+                            <span class="chart-title-label" id="chart-subtitle">Historical Price & Detected Drop Events</span>
+                        </div>
+                        <div class="chart-controls-right">
+                            <!-- Range selector pills (Display Range Only) -->
+                            <div class="chart-range-group" id="range-btns-group">
+                                <button type="button" class="chart-range-pill" data-range="1M">1M</button>
+                                <button type="button" class="chart-range-pill" data-range="3M">3M</button>
+                                <button type="button" class="chart-range-pill" data-range="6M">6M</button>
+                                <button type="button" class="chart-range-pill" data-range="1Y">1Y</button>
+                                <button type="button" class="chart-range-pill" data-range="5Y">5Y</button>
+                                <button type="button" class="chart-range-pill active" data-range="ALL">ALL</button>
+                            </div>
+                            <div class="chart-mode-group">
+                                <button type="button" class="chart-mode-btn active" id="btn-view-price">Price & Events</button>
+                                <button type="button" class="chart-mode-btn" id="btn-view-returns">Forward Returns</button>
+                                <button type="button" class="chart-reset-btn" id="btn-reset-zoom" title="Reset Zoom">Reset</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-viewport-container">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </section>
+
+                <!-- SECTION C: ANALYSIS PARAMETERS (HORIZONTAL CONTROL BAR) -->
+                <section class="analysis-parameters-bar">
+                    <form id="analysis-form" class="analysis-form-row">
+                        <div class="param-input-unit">
+                            <label for="ticker" class="param-label">TICKER</label>
+                            <input type="text" id="ticker" name="ticker" value="AAPL" class="param-field ticker-field" required autocomplete="off" spellcheck="false">
+                        </div>
+
+                        <div class="param-input-unit">
+                            <label for="drop_threshold" class="param-label">DROP THRESHOLD</label>
+                            <div class="param-field-wrap">
+                                <input type="number" id="drop_threshold" name="drop_threshold" value="10" min="0.1" step="0.1" class="param-field" required>
+                                <span class="param-affix">%</span>
+                            </div>
+                        </div>
+
+                        <div class="param-input-unit">
+                            <label for="window_days" class="param-label">WINDOW</label>
+                            <div class="param-field-wrap">
+                                <input type="number" id="window_days" name="window_days" value="5" min="1" max="250" class="param-field" required>
+                                <span class="param-affix">DAYS</span>
+                            </div>
+                        </div>
+
+                        <div class="param-input-unit">
+                            <label for="years" class="param-label">HISTORY</label>
+                            <div class="param-field-wrap">
+                                <input type="number" id="years" name="years" value="10" min="1" max="50" class="param-field" required>
+                                <span class="param-affix">YEARS</span>
+                            </div>
+                        </div>
+
+                        <div class="param-buttons-unit">
+                            <button type="submit" id="btn-analyze" class="terminal-btn-primary">ANALYZE</button>
+                            <button type="button" id="btn-reset" class="terminal-btn-secondary">RESET</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- SECTION D: DENSE STATISTICS & HISTORICAL STAKES (HORIZONTAL CARDS) -->
+                <section class="statistics-and-stakes-grid">
+                    <!-- Historical Stakes Verdict Card -->
+                    <div class="stats-terminal-card stakes-card" id="stakes-banner-card">
+                        <div class="card-top-row">
+                            <span class="card-caption">HISTORICAL STAKES</span>
+                            <div class="stakes-pill high" id="stakes-verdict-badge">
+                                <span id="stakes-dot">🔴</span>
+                                <span id="stakes-text">HIGH</span>
+                            </div>
+                        </div>
+                        <div class="stakes-events-count">
+                            <span class="count-num" id="metric-events-count">12</span>
+                            <span class="count-lbl">EVENTS ANALYZED</span>
+                        </div>
+                        <div class="stakes-reason-summary" id="stakes-reason-text">
+                            Historical outcomes showed relatively large variation across the analyzed events.
+                        </div>
+                        <div class="stakes-meta-specs">
+                            <span>Drop: <strong id="metric-threshold">10.0%</strong></span>
+                            <span>Window: <strong id="metric-window">5D</strong></span>
+                            <span style="display:none;" id="metric-years">10Y</span>
+                        </div>
+                    </div>
+
+                    <!-- 30D Stats Card -->
+                    <div class="stats-terminal-card" id="panel-30d">
+                        <div class="card-top-row">
+                            <span class="card-caption">30D FORWARD</span>
+                            <span class="card-sub-count" id="count-30">12 Events</span>
+                        </div>
+                        <div class="stats-dense-rows">
+                            <div class="stat-kv-row"><span class="k">AVG</span><span class="v positive" id="avg-30">+1.66%</span></div>
+                            <div class="stat-kv-row"><span class="k">MEDIAN</span><span class="v positive" id="med-30">+3.23%</span></div>
+                            <div class="stat-kv-row"><span class="k">WIN RATE</span><span class="v positive" id="win-30">58.33%</span></div>
+                            <div class="stat-kv-row"><span class="k">BEST</span><span class="v positive" id="best-30">+13.38%</span></div>
+                            <div class="stat-kv-row"><span class="k">WORST</span><span class="v negative" id="worst-30">-11.41%</span></div>
+                            <div class="stat-kv-row"><span class="k">STD DEV</span><span class="v muted" id="std-30">8.94%</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 90D Stats Card -->
+                    <div class="stats-terminal-card" id="panel-90d">
+                        <div class="card-top-row">
+                            <span class="card-caption">90D FORWARD</span>
+                            <span class="card-sub-count" id="count-90">12 Events</span>
+                        </div>
+                        <div class="stats-dense-rows">
+                            <div class="stat-kv-row"><span class="k">AVG</span><span class="v positive" id="avg-90">+14.24%</span></div>
+                            <div class="stat-kv-row"><span class="k">MEDIAN</span><span class="v positive" id="med-90">+13.12%</span></div>
+                            <div class="stat-kv-row"><span class="k">WIN RATE</span><span class="v positive" id="win-90">83.33%</span></div>
+                            <div class="stat-kv-row"><span class="k">BEST</span><span class="v positive" id="best-90">+36.01%</span></div>
+                            <div class="stat-kv-row"><span class="k">WORST</span><span class="v negative" id="worst-90">-8.12%</span></div>
+                            <div class="stat-kv-row"><span class="k">STD DEV</span><span class="v muted" id="std-90">14.20%</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 180D Stats Card -->
+                    <div class="stats-terminal-card" id="panel-180d">
+                        <div class="card-top-row">
+                            <span class="card-caption">180D FORWARD</span>
+                            <span class="card-sub-count" id="count-180">12 Events</span>
+                        </div>
+                        <div class="stats-dense-rows">
+                            <div class="stat-kv-row"><span class="k">AVG</span><span class="v positive" id="avg-180">+32.72%</span></div>
+                            <div class="stat-kv-row"><span class="k">MEDIAN</span><span class="v positive" id="med-180">+28.56%</span></div>
+                            <div class="stat-kv-row"><span class="k">WIN RATE</span><span class="v positive" id="win-180">91.67%</span></div>
+                            <div class="stat-kv-row"><span class="k">BEST</span><span class="v positive" id="best-180">+83.37%</span></div>
+                            <div class="stat-kv-row"><span class="k">WORST</span><span class="v negative" id="worst-180">-4.88%</span></div>
+                            <div class="stat-kv-row"><span class="k">STD DEV</span><span class="v muted" id="std-180">22.15%</span></div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- 3. RIGHT MARKETS PANEL (DYNAMIC GLOBAL ASSET CATALOG) -->
+            <aside class="terminal-market-panel">
+                <div class="market-panel-header">
+                    <div class="market-title-wrap">
+                        <span class="market-header-title">MARKETS</span>
+                        <span class="market-count-tag" id="dock-markets-count">231</span>
+                    </div>
+                    <button type="button" class="market-quick-ai-btn" id="market-open-ai-btn" title="Open NoCap AI Assistant">
+                        <span>✦ AI</span>
+                    </button>
+                </div>
+
+                <!-- Text Search Filter -->
+                <div class="market-search-box-wrap">
+                    <span class="market-search-icon">⌕</span>
+                    <input type="text" id="markets-filter-input" class="market-filter-field" placeholder="Search markets or tickers..." autocomplete="off" spellcheck="false">
+                </div>
+
+                <!-- Market Dropdown Filters: Country & Exchange -->
+                <div class="market-filters-row">
+                    <div class="market-filter-select-wrap">
+                        <label for="market-country-select" class="market-filter-lbl">COUNTRY</label>
+                        <select id="market-country-select" class="market-filter-select" aria-label="Filter by Country">
+                            <option value="All">All Countries</option>
+                        </select>
+                    </div>
+                    <div class="market-filter-select-wrap">
+                        <label for="market-exchange-select" class="market-filter-lbl">EXCHANGE</label>
+                        <select id="market-exchange-select" class="market-filter-select" aria-label="Filter by Exchange">
+                            <option value="All">All Exchanges</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Scope / Active View Indicator -->
+                <div class="market-scope-bar">
+                    <span class="market-scope-text" id="market-scope-text">WATCHLIST & GLOBAL MARKETS</span>
+                    <span class="market-live-indicator">● LIVE</span>
+                </div>
+
+                <!-- Scrollable Company Cards List -->
+                <div class="market-assets-scroll" id="markets-list-container">
+                    <!-- Populated dynamically with CompanyLogo + Company Name + Ticker + Country -->
+                </div>
+
+                <!-- Global Coverage Disclaimer -->
+                <div class="market-coverage-footer">
+                    <span>Global companies supported by available Yahoo Finance market coverage.</span>
+                </div>
+            </aside>
+        </div>
+
+        <!-- ====================================================================
+             BOTTOM SECTION: HISTORICAL DROP EVENTS TABLE (FULL WIDTH)
+             ==================================================================== -->
+        <section class="terminal-events-section">
+            <div class="events-toolbar-bar">
+                <div class="events-toolbar-left">
+                    <span class="events-panel-heading">HISTORICAL DROP EVENTS</span>
+                    <span class="events-count-pill" id="table-badge">12 Detected Events</span>
+                </div>
+                <div class="events-toolbar-right">
+                    <div class="events-filter-input-wrap">
+                        <span class="filter-icon">⌕</span>
+                        <input type="text" id="events-search" class="events-filter-field" placeholder="Filter by date, year..." autocomplete="off" spellcheck="false">
+                    </div>
+                    <button type="button" id="btn-export" class="events-export-btn">
+                        <span>EXPORT CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="events-table-viewport">
+                <table class="terminal-grid-table" id="events-table">
+                    <thead>
+                        <tr>
+                            <th class="th-sortable" data-sort="event_date">EVENT DATE ↕</th>
+                            <th class="th-sortable" data-sort="start_date">START DATE ↕</th>
+                            <th class="th-sortable num-align" data-sort="drop_percentage">DROP % ↕</th>
+                            <th class="th-sortable num-align" data-sort="start_price">START PRICE ↕</th>
+                            <th class="th-sortable num-align" data-sort="event_price">EVENT PRICE ↕</th>
+                            <th class="th-sortable num-align" data-sort="30_days">30D RETURN ↕</th>
+                            <th class="th-sortable num-align" data-sort="90_days">90D RETURN ↕</th>
+                            <th class="th-sortable num-align" data-sort="180_days">180D RETURN ↕</th>
+                        </tr>
+                    </thead>
+                    <tbody id="events-tbody">
+                        <!-- Populated by script.js -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ====================================================================
+             BOTTOM TERMINAL STATUS BAR (THIN METADATA BAR)
+             ==================================================================== -->
+        <footer class="terminal-statusbar">
+            <div class="statusbar-left">
+                <span class="status-item">DATA SOURCE: <strong style="color:#fff;" id="status-data-source">yfinance</strong></span>
+                <span class="status-divider">|</span>
+                <span class="status-item">DATABASE: <strong style="color:#fff;" id="status-db">Supabase</strong></span>
+                <span class="status-divider">|</span>
+                <span class="status-item">CACHE: <strong style="color:var(--green-up);" id="status-cache">Connected</strong></span>
+                <span class="status-divider">|</span>
+                <span class="status-item">LATEST DATA: <strong style="color:#fff;" id="meta-latest-date">2026-09-30</strong></span>
+            </div>
+            <div class="statusbar-right">
+                <span class="status-item">DATA POINTS: <strong style="color:#fff;" id="meta-data-points">2,512</strong></span>
+                <span class="status-divider">|</span>
+                <span class="status-item">EVENTS: <strong style="color:#fff;" id="status-events-count">12</strong></span>
+                <span class="status-divider">|</span>
+                <span class="status-item">AI: <strong style="color:var(--accent-blue);">Gemma 3</strong></span>
+            </div>
+        </footer>
+
+        <!-- ====================================================================
+             AI TERMINAL SLIDE-OVER DRAWER (TRIGGERED VIA RAIL OR TOPBAR)
+             ==================================================================== -->
+        <div class="terminal-ai-drawer hidden" id="terminal-ai-drawer">
+            <div class="drawer-header">
+                <div class="drawer-header-left">
+                    <span class="drawer-icon">✦</span>
+                    <div class="drawer-title-stack">
+                        <span class="drawer-title">NoCap AI Terminal</span>
+                        <span class="drawer-model">Gemma 3 Reasoning Engine</span>
+                    </div>
+                </div>
+                <div class="drawer-header-right">
+                    <div class="drawer-credits-tag" id="panel-credits-count-wrap">
+                        <span id="panel-credits-count">500</span> cr
+                    </div>
+                    <button type="button" class="drawer-close-btn" id="drawer-close-btn">✕</button>
+                </div>
+            </div>
+
+            <!-- Credits bar -->
+            <div class="drawer-credits-track">
+                <div class="drawer-credits-bar" id="panel-credits-bar" style="width: 100%;"></div>
+            </div>
+
+            <div class="drawer-messages-scroll" id="chat-messages">
+                <!-- Chat messages rendered dynamically -->
+            </div>
+
+            <div class="drawer-suggestions-bar">
+                <button type="button" class="chip-btn" data-prompt="Analyze Toyota">Analyze Toyota</button>
+                <button type="button" class="chip-btn" data-prompt="Analyze Samsung">Analyze Samsung</button>
+                <button type="button" class="chip-btn" data-prompt="Analyze TCS">Analyze TCS</button>
+                <button type="button" class="chip-btn" data-prompt="Analyze TSMC">Analyze TSMC</button>
+                <button type="button" class="chip-btn" data-prompt="Analyze SAP">Analyze SAP</button>
+                <button type="button" class="chip-btn" data-prompt="Explain volatility">Explain Volatility</button>
+                <button type="button" class="chip-btn" data-prompt="Compare AAPL vs NVDA">AAPL vs NVDA</button>
+            </div>
+
+            <form class="drawer-input-form" id="chat-input-form">
+                <span class="prompt-arrow">&gt;</span>
+                <input type="text" id="chat-user-input" class="drawer-input-field" placeholder="Ask NoCap AI about any stock or metric..." autocomplete="off">
+                <button type="submit" class="drawer-send-btn">SEND</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="CompanyLogo.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
