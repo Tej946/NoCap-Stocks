@@ -33,7 +33,7 @@
                         <span class="brand-text-main">NoCap</span>
                         <span class="brand-text-badge">STOCKS</span>
                     </div>
-                    <span class="brand-tagline">Historical Pattern Analysis</span>
+                    <span class="brand-tagline">Historical Pattern Analysis <button type="button" class="info-note-trigger" data-info="no_fake_predictions" aria-label="Explanation for No Fake Predictions" title="No Fake Predictions">ⓘ</button></span>
                 </div>
             </div>
 
@@ -51,7 +51,7 @@
             <div class="topbar-right">
                 <div class="status-indicator-pill" title="Real-time / Daily Market Data Provider">
                     <span class="status-glow-dot green"></span>
-                    <span class="status-label">Data: <strong>yfinance</strong></span>
+                    <span class="status-label">Data: <strong>yfinance</strong> <button type="button" class="info-note-trigger" data-info="data_source" aria-label="Explanation for Data Source" title="Data Source">ⓘ</button></span>
                 </div>
                 <div class="status-indicator-pill" id="backend-status" title="PostgreSQL Database Connection">
                     <span class="status-glow-dot green" id="supabase-status-dot"></span>
@@ -136,8 +136,10 @@
                             </div>
                             <div class="company-sub-meta">
                                 <span id="company-header-date">Latest available historical price: Sep 30, 2026</span>
+                                <button type="button" class="info-note-trigger" data-info="current_price" aria-label="Explanation for Current Price" title="Current / Latest Price">ⓘ</button>
                                 <span class="meta-sep">•</span>
                                 <span id="company-header-datapoints">2,512 trading sessions evaluated</span>
+                                <button type="button" class="info-note-trigger" data-info="historical_data" aria-label="Explanation for Historical Data" title="Historical Data">ⓘ</button>
                             </div>
                         </div>
                     </div>
@@ -145,7 +147,9 @@
                     <div class="company-price-box">
                         <div class="price-quote-row">
                             <span class="price-quote-value" id="company-header-price">$227.63</span>
+                            <button type="button" class="info-note-trigger" data-info="price" aria-label="Explanation for Price" title="Price">ⓘ</button>
                             <span class="price-change-tag positive" id="company-header-change">+0.41%</span>
+                            <button type="button" class="info-note-trigger" data-info="daily_change" aria-label="Explanation for Daily Change" title="Daily Change">ⓘ</button>
                         </div>
                         <span class="price-quote-sub">Latest completed trading session (Yahoo Finance)</span>
                     </div>
@@ -157,6 +161,17 @@
                         <div class="chart-meta-left">
                             <span class="chart-symbol-badge" id="chart-symbol">AAPL</span>
                             <span class="chart-title-label" id="chart-subtitle">Historical Price & Detected Drop Events</span>
+                            <button type="button" class="info-note-trigger" data-info="drop_event" aria-label="Explanation for Drop Event" title="Drop Event">ⓘ</button>
+                            <div class="chart-legend-strip">
+                                <span class="chart-legend-item">Candle <button type="button" class="info-note-trigger" data-info="candlestick" aria-label="Explanation for Candlestick" title="Candlestick">ⓘ</button></span>
+                                <span class="chart-legend-item"><span class="legend-dot green"></span> Bullish <button type="button" class="info-note-trigger" data-info="bullish_candle" aria-label="Explanation for Bullish Candle" title="Bullish Candle">ⓘ</button></span>
+                                <span class="chart-legend-item"><span class="legend-dot red"></span> Bearish <button type="button" class="info-note-trigger" data-info="bearish_candle" aria-label="Explanation for Bearish Candle" title="Bearish Candle">ⓘ</button></span>
+                                <span class="chart-legend-item">Open <button type="button" class="info-note-trigger" data-info="open_price" aria-label="Explanation for Open Price" title="Open Price">ⓘ</button></span>
+                                <span class="chart-legend-item">High <button type="button" class="info-note-trigger" data-info="high_price" aria-label="Explanation for High Price" title="High Price">ⓘ</button></span>
+                                <span class="chart-legend-item">Low <button type="button" class="info-note-trigger" data-info="low_price" aria-label="Explanation for Low Price" title="Low Price">ⓘ</button></span>
+                                <span class="chart-legend-item">Close <button type="button" class="info-note-trigger" data-info="close_price" aria-label="Explanation for Close Price" title="Close Price">ⓘ</button></span>
+                                <span class="chart-legend-item">Vol <button type="button" class="info-note-trigger" data-info="volume" aria-label="Explanation for Volume" title="Volume">ⓘ</button></span>
+                            </div>
                         </div>
                         <div class="chart-controls-right">
                             <!-- Range selector pills (Display Range Only) -->
@@ -171,6 +186,7 @@
                             <div class="chart-mode-group">
                                 <button type="button" class="chart-mode-btn active" id="btn-view-price">Price & Events</button>
                                 <button type="button" class="chart-mode-btn" id="btn-view-returns">Forward Returns</button>
+                                <button type="button" class="info-note-trigger" data-info="return_metric" aria-label="Explanation for Return" title="Forward Return" style="margin-left: 2px;">ⓘ</button>
                                 <button type="button" class="chart-reset-btn" id="btn-reset-zoom" title="Reset Zoom">Reset</button>
                             </div>
                         </div>
@@ -190,7 +206,10 @@
                         </div>
 
                         <div class="param-input-unit">
-                            <label for="drop_threshold" class="param-label">DROP THRESHOLD</label>
+                            <label for="drop_threshold" class="param-label">
+                                DROP THRESHOLD
+                                <button type="button" class="info-note-trigger" data-info="drop_threshold" aria-label="Explanation for Drop Threshold" title="Drop Threshold">ⓘ</button>
+                            </label>
                             <div class="param-field-wrap">
                                 <input type="number" id="drop_threshold" name="drop_threshold" value="10" min="0.1" step="0.1" class="param-field" required>
                                 <span class="param-affix">%</span>
@@ -198,7 +217,10 @@
                         </div>
 
                         <div class="param-input-unit">
-                            <label for="window_days" class="param-label">WINDOW</label>
+                            <label for="window_days" class="param-label">
+                                WINDOW
+                                <button type="button" class="info-note-trigger" data-info="window_days" aria-label="Explanation for Window" title="Window">ⓘ</button>
+                            </label>
                             <div class="param-field-wrap">
                                 <input type="number" id="window_days" name="window_days" value="5" min="1" max="250" class="param-field" required>
                                 <span class="param-affix">DAYS</span>
@@ -206,11 +228,20 @@
                         </div>
 
                         <div class="param-input-unit">
-                            <label for="years" class="param-label">HISTORY</label>
+                            <label for="years" class="param-label">
+                                HISTORY
+                                <button type="button" class="info-note-trigger" data-info="years" aria-label="Explanation for History / Years" title="Historical Period">ⓘ</button>
+                            </label>
                             <div class="param-field-wrap">
                                 <input type="number" id="years" name="years" value="10" min="1" max="50" class="param-field" required>
                                 <span class="param-affix">YEARS</span>
                             </div>
+                        </div>
+
+                        <div class="param-explainer-unit">
+                            <button type="button" id="btn-param-explainer" class="param-explainer-btn info-note-trigger" data-info="analysis_parameters_help" aria-label="Explain Analysis Parameters" title="Explain how parameters work together">
+                                <span>What does this mean?</span> <span class="param-explainer-icon">ⓘ</span>
+                            </button>
                         </div>
 
                         <div class="param-buttons-unit">
@@ -225,7 +256,7 @@
                     <!-- Historical Stakes Verdict Card -->
                     <div class="stats-terminal-card stakes-card" id="stakes-banner-card">
                         <div class="card-top-row">
-                            <span class="card-caption">HISTORICAL STAKES</span>
+                            <span class="card-caption">HISTORICAL STAKES <button type="button" class="info-note-trigger" data-info="historical_stakes" aria-label="Explanation for Historical Stakes" title="Historical Stakes">ⓘ</button></span>
                             <div class="stakes-pill high" id="stakes-verdict-badge">
                                 <span id="stakes-dot">🔴</span>
                                 <span id="stakes-text">HIGH</span>
@@ -233,14 +264,14 @@
                         </div>
                         <div class="stakes-events-count">
                             <span class="count-num" id="metric-events-count">12</span>
-                            <span class="count-lbl">EVENTS ANALYZED</span>
+                            <span class="count-lbl">EVENTS ANALYZED <button type="button" class="info-note-trigger" data-info="detected_events" aria-label="Explanation for Detected Events" title="Detected Events">ⓘ</button></span>
                         </div>
                         <div class="stakes-reason-summary" id="stakes-reason-text">
                             Historical outcomes showed relatively large variation across the analyzed events.
                         </div>
                         <div class="stakes-meta-specs">
-                            <span>Drop: <strong id="metric-threshold">10.0%</strong></span>
-                            <span>Window: <strong id="metric-window">5D</strong></span>
+                            <span>Drop: <strong id="metric-threshold">10.0%</strong> <button type="button" class="info-note-trigger" data-info="drop_threshold" aria-label="Explanation for Drop Threshold" title="Drop Threshold">ⓘ</button></span>
+                            <span>Window: <strong id="metric-window">5D</strong> <button type="button" class="info-note-trigger" data-info="window_days" aria-label="Explanation for Window" title="Window">ⓘ</button></span>
                             <span style="display:none;" id="metric-years">10Y</span>
                         </div>
                     </div>
@@ -248,48 +279,48 @@
                     <!-- 30D Stats Card -->
                     <div class="stats-terminal-card" id="panel-30d">
                         <div class="card-top-row">
-                            <span class="card-caption">30D FORWARD</span>
+                            <span class="card-caption">30D FORWARD <button type="button" class="info-note-trigger" data-info="return_30d" aria-label="Explanation for 30D Return" title="30D Return">ⓘ</button></span>
                             <span class="card-sub-count" id="count-30">12 Events</span>
                         </div>
                         <div class="stats-dense-rows">
-                            <div class="stat-kv-row"><span class="k">AVG</span><span class="v positive" id="avg-30">+1.66%</span></div>
-                            <div class="stat-kv-row"><span class="k">MEDIAN</span><span class="v positive" id="med-30">+3.23%</span></div>
-                            <div class="stat-kv-row"><span class="k">WIN RATE</span><span class="v positive" id="win-30">58.33%</span></div>
-                            <div class="stat-kv-row"><span class="k">BEST</span><span class="v positive" id="best-30">+13.38%</span></div>
-                            <div class="stat-kv-row"><span class="k">WORST</span><span class="v negative" id="worst-30">-11.41%</span></div>
-                            <div class="stat-kv-row"><span class="k">STD DEV</span><span class="v muted" id="std-30">8.94%</span></div>
+                            <div class="stat-kv-row"><span class="k">AVG <button type="button" class="info-note-trigger" data-info="avg_return" aria-label="Explanation for Average Return" title="Average Return">ⓘ</button></span><span class="v positive" id="avg-30">+1.66%</span></div>
+                            <div class="stat-kv-row"><span class="k">MEDIAN <button type="button" class="info-note-trigger" data-info="median_return" aria-label="Explanation for Median Return" title="Median Return">ⓘ</button></span><span class="v positive" id="med-30">+3.23%</span></div>
+                            <div class="stat-kv-row"><span class="k">WIN RATE <button type="button" class="info-note-trigger" data-info="win_rate" aria-label="Explanation for Win Rate" title="Win Rate">ⓘ</button></span><span class="v positive" id="win-30">58.33%</span></div>
+                            <div class="stat-kv-row"><span class="k">BEST <button type="button" class="info-note-trigger" data-info="best_return" aria-label="Explanation for Best Return" title="Best Return">ⓘ</button></span><span class="v positive" id="best-30">+13.38%</span></div>
+                            <div class="stat-kv-row"><span class="k">WORST <button type="button" class="info-note-trigger" data-info="worst_return" aria-label="Explanation for Worst Return" title="Worst Return">ⓘ</button></span><span class="v negative" id="worst-30">-11.41%</span></div>
+                            <div class="stat-kv-row"><span class="k">STD DEV <button type="button" class="info-note-trigger" data-info="std_dev" aria-label="Explanation for Standard Deviation" title="Standard Deviation / Volatility">ⓘ</button></span><span class="v muted" id="std-30">8.94%</span></div>
                         </div>
                     </div>
 
                     <!-- 90D Stats Card -->
                     <div class="stats-terminal-card" id="panel-90d">
                         <div class="card-top-row">
-                            <span class="card-caption">90D FORWARD</span>
+                            <span class="card-caption">90D FORWARD <button type="button" class="info-note-trigger" data-info="return_90d" aria-label="Explanation for 90D Return" title="90D Return">ⓘ</button></span>
                             <span class="card-sub-count" id="count-90">12 Events</span>
                         </div>
                         <div class="stats-dense-rows">
-                            <div class="stat-kv-row"><span class="k">AVG</span><span class="v positive" id="avg-90">+14.24%</span></div>
-                            <div class="stat-kv-row"><span class="k">MEDIAN</span><span class="v positive" id="med-90">+13.12%</span></div>
-                            <div class="stat-kv-row"><span class="k">WIN RATE</span><span class="v positive" id="win-90">83.33%</span></div>
-                            <div class="stat-kv-row"><span class="k">BEST</span><span class="v positive" id="best-90">+36.01%</span></div>
-                            <div class="stat-kv-row"><span class="k">WORST</span><span class="v negative" id="worst-90">-8.12%</span></div>
-                            <div class="stat-kv-row"><span class="k">STD DEV</span><span class="v muted" id="std-90">14.20%</span></div>
+                            <div class="stat-kv-row"><span class="k">AVG <button type="button" class="info-note-trigger" data-info="avg_return" aria-label="Explanation for Average Return" title="Average Return">ⓘ</button></span><span class="v positive" id="avg-90">+14.24%</span></div>
+                            <div class="stat-kv-row"><span class="k">MEDIAN <button type="button" class="info-note-trigger" data-info="median_return" aria-label="Explanation for Median Return" title="Median Return">ⓘ</button></span><span class="v positive" id="med-90">+13.12%</span></div>
+                            <div class="stat-kv-row"><span class="k">WIN RATE <button type="button" class="info-note-trigger" data-info="win_rate" aria-label="Explanation for Win Rate" title="Win Rate">ⓘ</button></span><span class="v positive" id="win-90">83.33%</span></div>
+                            <div class="stat-kv-row"><span class="k">BEST <button type="button" class="info-note-trigger" data-info="best_return" aria-label="Explanation for Best Return" title="Best Return">ⓘ</button></span><span class="v positive" id="best-90">+36.01%</span></div>
+                            <div class="stat-kv-row"><span class="k">WORST <button type="button" class="info-note-trigger" data-info="worst_return" aria-label="Explanation for Worst Return" title="Worst Return">ⓘ</button></span><span class="v negative" id="worst-90">-8.12%</span></div>
+                            <div class="stat-kv-row"><span class="k">STD DEV <button type="button" class="info-note-trigger" data-info="std_dev" aria-label="Explanation for Standard Deviation" title="Standard Deviation / Volatility">ⓘ</button></span><span class="v muted" id="std-90">14.20%</span></div>
                         </div>
                     </div>
 
                     <!-- 180D Stats Card -->
                     <div class="stats-terminal-card" id="panel-180d">
                         <div class="card-top-row">
-                            <span class="card-caption">180D FORWARD</span>
+                            <span class="card-caption">180D FORWARD <button type="button" class="info-note-trigger" data-info="return_180d" aria-label="Explanation for 180D Return" title="180D Return">ⓘ</button></span>
                             <span class="card-sub-count" id="count-180">12 Events</span>
                         </div>
                         <div class="stats-dense-rows">
-                            <div class="stat-kv-row"><span class="k">AVG</span><span class="v positive" id="avg-180">+32.72%</span></div>
-                            <div class="stat-kv-row"><span class="k">MEDIAN</span><span class="v positive" id="med-180">+28.56%</span></div>
-                            <div class="stat-kv-row"><span class="k">WIN RATE</span><span class="v positive" id="win-180">91.67%</span></div>
-                            <div class="stat-kv-row"><span class="k">BEST</span><span class="v positive" id="best-180">+83.37%</span></div>
-                            <div class="stat-kv-row"><span class="k">WORST</span><span class="v negative" id="worst-180">-4.88%</span></div>
-                            <div class="stat-kv-row"><span class="k">STD DEV</span><span class="v muted" id="std-180">22.15%</span></div>
+                            <div class="stat-kv-row"><span class="k">AVG <button type="button" class="info-note-trigger" data-info="avg_return" aria-label="Explanation for Average Return" title="Average Return">ⓘ</button></span><span class="v positive" id="avg-180">+32.72%</span></div>
+                            <div class="stat-kv-row"><span class="k">MEDIAN <button type="button" class="info-note-trigger" data-info="median_return" aria-label="Explanation for Median Return" title="Median Return">ⓘ</button></span><span class="v positive" id="med-180">+28.56%</span></div>
+                            <div class="stat-kv-row"><span class="k">WIN RATE <button type="button" class="info-note-trigger" data-info="win_rate" aria-label="Explanation for Win Rate" title="Win Rate">ⓘ</button></span><span class="v positive" id="win-180">91.67%</span></div>
+                            <div class="stat-kv-row"><span class="k">BEST <button type="button" class="info-note-trigger" data-info="best_return" aria-label="Explanation for Best Return" title="Best Return">ⓘ</button></span><span class="v positive" id="best-180">+83.37%</span></div>
+                            <div class="stat-kv-row"><span class="k">WORST <button type="button" class="info-note-trigger" data-info="worst_return" aria-label="Explanation for Worst Return" title="Worst Return">ⓘ</button></span><span class="v negative" id="worst-180">-4.88%</span></div>
+                            <div class="stat-kv-row"><span class="k">STD DEV <button type="button" class="info-note-trigger" data-info="std_dev" aria-label="Explanation for Standard Deviation" title="Standard Deviation / Volatility">ⓘ</button></span><span class="v muted" id="std-180">22.15%</span></div>
                         </div>
                     </div>
                 </section>
@@ -353,8 +384,9 @@
         <section class="terminal-events-section">
             <div class="events-toolbar-bar">
                 <div class="events-toolbar-left">
-                    <span class="events-panel-heading">HISTORICAL DROP EVENTS</span>
+                    <span class="events-panel-heading">HISTORICAL DROP EVENTS <button type="button" class="info-note-trigger" data-info="drop_event" aria-label="Explanation for Drop Event" title="Drop Event">ⓘ</button></span>
                     <span class="events-count-pill" id="table-badge">12 Detected Events</span>
+                    <button type="button" class="info-note-trigger" data-info="detected_events" aria-label="Explanation for Detected Events" title="Detected Events">ⓘ</button>
                 </div>
                 <div class="events-toolbar-right">
                     <div class="events-filter-input-wrap">
@@ -373,12 +405,12 @@
                         <tr>
                             <th class="th-sortable" data-sort="event_date">EVENT DATE ↕</th>
                             <th class="th-sortable" data-sort="start_date">START DATE ↕</th>
-                            <th class="th-sortable num-align" data-sort="drop_percentage">DROP % ↕</th>
-                            <th class="th-sortable num-align" data-sort="start_price">START PRICE ↕</th>
-                            <th class="th-sortable num-align" data-sort="event_price">EVENT PRICE ↕</th>
-                            <th class="th-sortable num-align" data-sort="30_days">30D RETURN ↕</th>
-                            <th class="th-sortable num-align" data-sort="90_days">90D RETURN ↕</th>
-                            <th class="th-sortable num-align" data-sort="180_days">180D RETURN ↕</th>
+                            <th class="th-sortable num-align" data-sort="drop_percentage">DROP % <button type="button" class="info-note-trigger" data-info="drop_threshold" aria-label="Explanation for Drop Percentage" title="Drop Percentage">ⓘ</button> ↕</th>
+                            <th class="th-sortable num-align" data-sort="start_price">START PRICE <button type="button" class="info-note-trigger" data-info="price" aria-label="Explanation for Price" title="Start Price">ⓘ</button> ↕</th>
+                            <th class="th-sortable num-align" data-sort="event_price">EVENT PRICE <button type="button" class="info-note-trigger" data-info="price" aria-label="Explanation for Price" title="Event Price">ⓘ</button> ↕</th>
+                            <th class="th-sortable num-align" data-sort="30_days">30D RETURN <button type="button" class="info-note-trigger" data-info="return_30d" aria-label="Explanation for 30D Return" title="30D Return">ⓘ</button> ↕</th>
+                            <th class="th-sortable num-align" data-sort="90_days">90D RETURN <button type="button" class="info-note-trigger" data-info="return_90d" aria-label="Explanation for 90D Return" title="90D Return">ⓘ</button> ↕</th>
+                            <th class="th-sortable num-align" data-sort="180_days">180D RETURN <button type="button" class="info-note-trigger" data-info="return_180d" aria-label="Explanation for 180D Return" title="180D Return">ⓘ</button> ↕</th>
                         </tr>
                     </thead>
                     <tbody id="events-tbody">
@@ -393,7 +425,7 @@
              ==================================================================== -->
         <footer class="terminal-statusbar">
             <div class="statusbar-left">
-                <span class="status-item">DATA SOURCE: <strong style="color:#fff;" id="status-data-source">yfinance</strong></span>
+                <span class="status-item">DATA SOURCE: <strong style="color:#fff;" id="status-data-source">yfinance</strong> <button type="button" class="info-note-trigger" data-info="data_source" aria-label="Explanation for Data Source" title="Data Source">ⓘ</button></span>
                 <span class="status-divider">|</span>
                 <span class="status-item">DATABASE: <strong style="color:#fff;" id="status-db">Supabase</strong></span>
                 <span class="status-divider">|</span>
@@ -528,6 +560,22 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Centralized Floating Terminal Info Tooltip (Never clipped, boundary-aware) -->
+    <div id="terminal-info-tooltip" class="terminal-tooltip-bubble" role="tooltip" aria-hidden="true">
+        <div class="terminal-tooltip-header">
+            <span class="terminal-tooltip-title" id="tooltip-title">TERMINAL TERM</span>
+            <span class="terminal-tooltip-tag">INFO</span>
+        </div>
+        <div class="terminal-tooltip-body" id="tooltip-body">Term explanation goes here.</div>
+        <div class="terminal-tooltip-example hidden" id="tooltip-example">
+            <strong>Example:</strong> <span id="tooltip-example-text"></span>
+        </div>
+        <div class="terminal-tooltip-footer">
+            <span>NoCap Terminal Docs</span>
+            <span style="color: var(--accent-cyan);">Empirical Analysis</span>
         </div>
     </div>
 

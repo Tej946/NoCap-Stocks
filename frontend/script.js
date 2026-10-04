@@ -135,9 +135,333 @@ let currentCredits = 500;
 // Search debounce
 let searchDebounceTimer = null;
 
+// ==============================================================================
+// NoCap Stocks — Beginner-Friendly Financial Terminal Explanations & Tooltips
+// ==============================================================================
+const INFO_TOOLTIPS = {
+    drop_threshold: {
+        title: "DROP THRESHOLD",
+        explanation: "The minimum percentage drop in price used to identify a historical drop event.",
+        example: "If set to 10%, the system looks for historical periods where the stock dropped by at least 10%."
+    },
+    window_days: {
+        title: "WINDOW / WINDOW DAYS",
+        explanation: "The number of trading days used to measure whether a significant price drop occurred.",
+        example: "A 5-day window checks the price movement across 5 trading days."
+    },
+    years: {
+        title: "YEARS / HISTORICAL PERIOD",
+        explanation: "How many years of past market data the system analyzes.",
+        example: "10 years means the system searches for historical drop events during the past 10 years."
+    },
+    price: {
+        title: "PRICE",
+        explanation: "The stock's market price for a particular trading day.",
+        example: null
+    },
+    current_price: {
+        title: "CURRENT / LATEST PRICE",
+        explanation: "The most recent available market price in the data source.",
+        example: null
+    },
+    daily_change: {
+        title: "DAILY CHANGE",
+        explanation: "How much the stock price changed compared with the previous trading day.",
+        example: null
+    },
+    return_metric: {
+        title: "RETURN",
+        explanation: "The percentage change in the stock price after a historical drop event.",
+        example: null
+    },
+    return_30d: {
+        title: "30D RETURN",
+        explanation: "The percentage price change approximately 30 trading days after a detected drop.",
+        example: null
+    },
+    return_90d: {
+        title: "90D RETURN",
+        explanation: "The percentage price change approximately 90 trading days after a detected drop.",
+        example: null
+    },
+    return_180d: {
+        title: "180D RETURN",
+        explanation: "The percentage price change approximately 180 trading days after a detected drop.",
+        example: null
+    },
+    avg_return: {
+        title: "AVERAGE RETURN",
+        explanation: "The average return across all detected historical drop events.",
+        example: null
+    },
+    median_return: {
+        title: "MEDIAN RETURN",
+        explanation: "The middle return value when all historical event returns are ordered from lowest to highest.",
+        example: null
+    },
+    win_rate: {
+        title: "WIN RATE",
+        explanation: "The percentage of historical events where the stock had a positive return after the drop.",
+        example: null
+    },
+    best_return: {
+        title: "BEST RETURN",
+        explanation: "The highest return observed among the analyzed historical drop events.",
+        example: null
+    },
+    worst_return: {
+        title: "WORST RETURN",
+        explanation: "The lowest return observed among the analyzed historical drop events.",
+        example: null
+    },
+    std_dev: {
+        title: "STANDARD DEVIATION / VOLATILITY",
+        explanation: "A measure of how widely the historical returns varied from the average.",
+        example: null
+    },
+    detected_events: {
+        title: "DETECTED EVENTS",
+        explanation: "The number of historical price-drop events found using your selected settings.",
+        example: null
+    },
+    drop_event: {
+        title: "DROP EVENT",
+        explanation: "A historical period in which the stock experienced a price decline meeting the selected drop threshold.",
+        example: null
+    },
+    open_price: {
+        title: "OPEN",
+        explanation: "The stock price when that trading session started.",
+        example: null
+    },
+    high_price: {
+        title: "HIGH",
+        explanation: "The highest price reached during that trading session.",
+        example: null
+    },
+    low_price: {
+        title: "LOW",
+        explanation: "The lowest price reached during that trading session.",
+        example: null
+    },
+    close_price: {
+        title: "CLOSE",
+        explanation: "The stock's final price at the end of that trading session.",
+        example: null
+    },
+    volume: {
+        title: "VOLUME",
+        explanation: "The number of shares traded during a trading session.",
+        example: null
+    },
+    candlestick: {
+        title: "CANDLESTICK",
+        explanation: "Each candle shows the stock's Open, High, Low, and Close prices for a trading session.",
+        example: null
+    },
+    bullish_candle: {
+        title: "BULLISH / GREEN CANDLE",
+        explanation: "The closing price was higher than or equal to the opening price for that session.",
+        example: null
+    },
+    bearish_candle: {
+        title: "BEARISH / RED CANDLE",
+        explanation: "The closing price was lower than the opening price for that session.",
+        example: null
+    },
+    historical_stakes: {
+        title: "HISTORICAL STAKES",
+        explanation: "A summary of how meaningful the selected historical drop pattern appears based on past data. It is not a prediction.",
+        example: null
+    },
+    historical_data: {
+        title: "HISTORICAL DATA",
+        explanation: "Past market data used to analyze what happened after previous price drops.",
+        example: null
+    },
+    data_source: {
+        title: "DATA SOURCE",
+        explanation: "The market-data provider used by NoCap Stocks to retrieve historical price information.",
+        example: null
+    },
+    no_fake_predictions: {
+        title: "NO FAKE PREDICTIONS",
+        explanation: "NoCap Stocks analyzes historical behavior. It does not predict future prices or provide buy/sell recommendations.",
+        example: null
+    },
+    analysis_parameters_help: {
+        title: "ANALYSIS PARAMETERS",
+        explanation: "How Drop Threshold, Window, and History work together to detect historical patterns.",
+        example: "The system scans the past X years of data, checking every period of Y days to locate moments where the stock dropped by at least Z%."
+    }
+};
+
+let activeTooltipTrigger = null;
+let tooltipHideTimeout = null;
+
+function showTerminalTooltip(triggerEl, infoKey) {
+    if (!triggerEl || !infoKey) return;
+    const item = INFO_TOOLTIPS[infoKey];
+    if (!item) return;
+
+    if (tooltipHideTimeout) {
+        clearTimeout(tooltipHideTimeout);
+        tooltipHideTimeout = null;
+    }
+
+    const tooltip = document.getElementById('terminal-info-tooltip');
+    const titleEl = document.getElementById('tooltip-title');
+    const bodyEl = document.getElementById('tooltip-body');
+    const exampleWrap = document.getElementById('tooltip-example');
+    const exampleText = document.getElementById('tooltip-example-text');
+
+    if (!tooltip || !titleEl || !bodyEl) return;
+
+    titleEl.textContent = item.title;
+    bodyEl.textContent = item.explanation;
+
+    if (item.example && exampleWrap && exampleText) {
+        exampleText.textContent = item.example;
+        exampleWrap.classList.remove('hidden');
+    } else if (exampleWrap) {
+        exampleWrap.classList.add('hidden');
+    }
+
+    if (activeTooltipTrigger && activeTooltipTrigger !== triggerEl) {
+        activeTooltipTrigger.classList.remove('active');
+    }
+    activeTooltipTrigger = triggerEl;
+    triggerEl.classList.add('active');
+
+    // Make visible to measure dimensions
+    tooltip.classList.add('visible');
+    tooltip.setAttribute('aria-hidden', 'false');
+
+    positionTooltip(triggerEl, tooltip);
+}
+
+function hideTerminalTooltip(immediate = false) {
+    const tooltip = document.getElementById('terminal-info-tooltip');
+    if (!tooltip) return;
+
+    const doHide = () => {
+        tooltip.classList.remove('visible');
+        tooltip.setAttribute('aria-hidden', 'true');
+        if (activeTooltipTrigger) {
+            activeTooltipTrigger.classList.remove('active');
+            activeTooltipTrigger = null;
+        }
+    };
+
+    if (immediate) {
+        if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
+        doHide();
+    } else {
+        if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
+        tooltipHideTimeout = setTimeout(doHide, 120);
+    }
+}
+
+function positionTooltip(triggerEl, tooltip) {
+    if (!triggerEl || !tooltip) return;
+
+    const rect = triggerEl.getBoundingClientRect();
+    const tipWidth = tooltip.offsetWidth || 300;
+    const tipHeight = tooltip.offsetHeight || 120;
+    const pad = 8;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let top = rect.top - tipHeight - pad;
+    let left = rect.left + (rect.width / 2) - (tipWidth / 2);
+
+    if (top < 12) {
+        top = rect.bottom + pad;
+    }
+
+    if (left < 10) {
+        left = 10;
+    } else if (left + tipWidth > vw - 10) {
+        left = Math.max(10, vw - tipWidth - 10);
+    }
+
+    if (top + tipHeight > vh - 10) {
+        top = Math.max(10, vh - tipHeight - 10);
+    }
+
+    tooltip.style.top = `${Math.round(top)}px`;
+    tooltip.style.left = `${Math.round(left)}px`;
+}
+
+function initInfoTooltips() {
+    const tooltip = document.getElementById('terminal-info-tooltip');
+
+    document.addEventListener('mouseover', (e) => {
+        const trigger = e.target.closest('.info-note-trigger');
+        if (trigger) {
+            const infoKey = trigger.getAttribute('data-info');
+            if (infoKey) showTerminalTooltip(trigger, infoKey);
+        }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        const trigger = e.target.closest('.info-note-trigger');
+        if (trigger) {
+            const related = e.relatedTarget;
+            if (related && tooltip && tooltip.contains(related)) {
+                return;
+            }
+            hideTerminalTooltip(false);
+        }
+    });
+
+    if (tooltip) {
+        tooltip.addEventListener('mouseleave', () => {
+            hideTerminalTooltip(false);
+        });
+        tooltip.addEventListener('mouseenter', () => {
+            if (tooltipHideTimeout) {
+                clearTimeout(tooltipHideTimeout);
+                tooltipHideTimeout = null;
+            }
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        const trigger = e.target.closest('.info-note-trigger');
+        if (trigger) {
+            e.preventDefault();
+            e.stopPropagation();
+            const infoKey = trigger.getAttribute('data-info');
+            if (activeTooltipTrigger === trigger && tooltip && tooltip.classList.contains('visible')) {
+                hideTerminalTooltip(true);
+            } else {
+                showTerminalTooltip(trigger, infoKey);
+            }
+            return;
+        }
+
+        if (tooltip && !tooltip.contains(e.target)) {
+            hideTerminalTooltip(true);
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            hideTerminalTooltip(true);
+        }
+    });
+
+    window.addEventListener('scroll', () => {
+        if (activeTooltipTrigger) hideTerminalTooltip(true);
+    }, { passive: true });
+}
+
 // Initialize upon DOM load
 document.addEventListener('DOMContentLoaded', async () => {
     initAICredits();
+    initInfoTooltips();
     setupEventListeners();
     setupGlobalSearch();
     renderMarketsList();
@@ -216,7 +540,8 @@ function setupEventListeners() {
 
     // Table Sorting
     document.querySelectorAll('.th-sortable').forEach(th => {
-        th.addEventListener('click', () => {
+        th.addEventListener('click', (e) => {
+            if (e.target.closest('.info-note-trigger')) return;
             const col = th.getAttribute('data-sort');
             if (currentSortCol === col) {
                 currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';

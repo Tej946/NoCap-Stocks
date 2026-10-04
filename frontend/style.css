@@ -1790,3 +1790,235 @@ html, body {
 
 /* Helper Utilities */
 .hidden { display: none !important; }
+
+/* ==========================================================================
+   TERMINAL INFO NOTES & TOOLTIPS (Institutional Dark Exchange Terminal)
+   ========================================================================== */
+.info-note-trigger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px;
+    height: 13px;
+    margin-left: 4px;
+    padding: 0;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--text-dim);
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 9.5px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    flex-shrink: 0;
+}
+
+/* Enlarge hit area on touch devices to 25px without changing visual appearance */
+.info-note-trigger::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    bottom: -6px;
+    left: -6px;
+    right: -6px;
+}
+
+.info-note-trigger:hover,
+.info-note-trigger.active {
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+    background: rgba(6, 182, 212, 0.15);
+    transform: scale(1.1);
+}
+
+.info-note-trigger:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 1px;
+}
+
+/* Specific spacing inside captions and table headers */
+.card-caption .info-note-trigger,
+.param-label .info-note-trigger,
+.events-panel-heading .info-note-trigger {
+    margin-left: 5px;
+}
+
+.th-sortable .info-note-trigger {
+    margin: 0 2px;
+}
+
+/* Chart Header Legend Strip */
+.chart-legend-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 8px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border-main);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+}
+
+.chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.legend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-dot.green {
+    background: var(--green-up);
+    box-shadow: 0 0 4px var(--green-up);
+}
+
+.legend-dot.red {
+    background: var(--red-down);
+    box-shadow: 0 0 4px var(--red-down);
+}
+
+/* Analysis Parameters "What does this mean?" Interaction */
+.param-explainer-unit {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.param-explainer-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 3px;
+    transition: color 0.15s ease, background 0.15s ease;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.param-explainer-btn:hover {
+    color: #ffffff;
+    background: rgba(6, 182, 212, 0.12);
+}
+
+.param-explainer-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--accent-cyan);
+    font-size: 9px;
+    line-height: 1;
+}
+
+/* Centralized Terminal Tooltip Bubble (Boundary-Clamped, High Contrast) */
+.terminal-tooltip-bubble {
+    position: fixed;
+    z-index: 10000;
+    width: 300px;
+    max-width: calc(100vw - 20px);
+    background: #090e17;
+    border: 1px solid #1e2c40;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(6, 182, 212, 0.18);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #e2e8f0;
+    font-family: var(--font-ui);
+    pointer-events: auto;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+}
+
+.terminal-tooltip-bubble.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.terminal-tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terminal-tooltip-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.terminal-tooltip-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 1px 5px;
+    background: rgba(37, 99, 235, 0.2);
+    border: 1px solid rgba(37, 99, 235, 0.4);
+    color: #93c5fd;
+    border-radius: 3px;
+    letter-spacing: 0.3px;
+}
+
+.terminal-tooltip-body {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #cbd5e1;
+}
+
+.terminal-tooltip-example {
+    margin-top: 7px;
+    padding: 6px 8px;
+    background: rgba(15, 23, 42, 0.85);
+    border-left: 2px solid var(--accent-cyan);
+    border-radius: 0 4px 4px 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #94a3b8;
+}
+
+.terminal-tooltip-example strong {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+.terminal-tooltip-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 7px;
+    padding-top: 5px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 9.5px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+}
+
