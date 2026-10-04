@@ -4,14 +4,92 @@
  * Dynamic Company Logos, and NoCap AI Assistant.
  */
 
-// API Endpoints
-const API_BASE_URL = 'http://127.0.0.1:5000';
+// ==============================================================================
+// NoCap Stocks — Centralized API & Environment Configuration
+// ==============================================================================
+const ENV_CONFIG = {
+    // Production API Base URL (Render Web Service)
+    production: 'https://nocap-stocks-api.onrender.com',
+    // Local Development API Base URL (Local Flask Backend)
+    local: 'http://127.0.0.1:5000'
+};
+
+/**
+ * Resolves the active API base URL.
+ * - In production environments (when hosted on Render, Vercel, Netlify, GitHub Pages, or any public domain):
+ *   Uses ENV_CONFIG.production ('https://nocap-stocks-api.onrender.com').
+ * - In local environments (localhost / 127.0.0.1 / file://):
+ *   Defaults to ENV_CONFIG.local ('http://127.0.0.1:5000'), while allowing instant switching
+ *   to production via URL query param (?api=prod or ?api=production) or localStorage ('nocap_api_env').
+ */
+function resolveApiBaseUrl() {
+    if (typeof window === 'undefined' || !window.location) {
+        return ENV_CONFIG.production;
+    }
+
+    // 1. Explicit query parameter override (e.g. ?api=prod, ?api=local, ?apiUrl=https://...)
+    const params = new URLSearchParams(window.location.search);
+    const apiParam = params.get('api') || params.get('apiUrl') || params.get('backend');
+    if (apiParam === 'prod' || apiParam === 'production') return ENV_CONFIG.production;
+    if (apiParam === 'local' || apiParam === 'dev') return ENV_CONFIG.local;
+    if (apiParam && apiParam.startsWith('http')) return apiParam.replace(/\/$/, '');
+
+    // 2. Local storage override (allows developer switching in browser console)
+    try {
+        const storedEnv = localStorage.getItem('nocap_api_env');
+        if (storedEnv && ENV_CONFIG[storedEnv]) return ENV_CONFIG[storedEnv];
+        const storedUrl = localStorage.getItem('nocap_api_url');
+        if (storedUrl && storedUrl.startsWith('http')) return storedUrl.replace(/\/$/, '');
+    } catch (_) {}
+
+    // 3. Domain-based detection:
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+
+    // Production deployment (any public domain):
+    if (!isLocalhost && window.location.protocol !== 'file:') {
+        return ENV_CONFIG.production;
+    }
+
+    // Local development fallback:
+    return ENV_CONFIG.local;
+}
+
+// Active Centralized API Base URL
+const API_BASE_URL = resolveApiBaseUrl();
+
+// Centralized API Endpoints
 const API_URL = `${API_BASE_URL}/api/analyze`;
 const CHAT_URL = `${API_BASE_URL}/api/chat`;
 const SEARCH_URL = `${API_BASE_URL}/api/companies/search`;
+const SEARCH_API_URL = `${API_BASE_URL}/api/search`;
 const MARKETS_URL = `${API_BASE_URL}/api/markets`;
 const FILTERS_URL = `${API_BASE_URL}/api/companies/filters`;
 const COMPANIES_URL = `${API_BASE_URL}/api/companies`;
+const COMPANY_URL = `${API_BASE_URL}/api/company`;
+const SUPABASE_TEST_URL = `${API_BASE_URL}/api/supabase/test`;
+
+// Global debug helper for developer console
+if (typeof window !== 'undefined') {
+    window.NoCap = {
+        config: ENV_CONFIG,
+        apiBaseUrl: API_BASE_URL,
+        setBackend: (envOrUrl) => {
+            if (envOrUrl === 'local' || envOrUrl === 'production') {
+                localStorage.setItem('nocap_api_env', envOrUrl);
+                localStorage.removeItem('nocap_api_url');
+            } else if (envOrUrl && envOrUrl.startsWith('http')) {
+                localStorage.setItem('nocap_api_url', envOrUrl);
+                localStorage.removeItem('nocap_api_env');
+            } else if (envOrUrl === 'reset') {
+                localStorage.removeItem('nocap_api_env');
+                localStorage.removeItem('nocap_api_url');
+            }
+            window.location.reload();
+        }
+    };
+    console.log(`[NoCap Stocks] API Base URL: ${API_BASE_URL} (${API_BASE_URL === ENV_CONFIG.production ? 'Production Render' : 'Local Dev'})`);
+}
 
 // Default Institutional Global Watchlist (18 primary global companies rendered instantly on zero ms)
 const DEFAULT_MARKETS_CACHE = [
