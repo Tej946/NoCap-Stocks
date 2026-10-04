@@ -101,6 +101,7 @@ const DEFAULT_MARKETS_CACHE = [
     { ticker: "GOOGL", company_name: "Alphabet Inc.", exchange: "NASDAQ", country: "United States", latest_price: 165.85, daily_change_pct: -0.34 },
     { ticker: "META", company_name: "Meta Platforms", exchange: "NASDAQ", country: "United States", latest_price: 567.36, daily_change_pct: 0.92 },
     { ticker: "TCS.NS", company_name: "Tata Consultancy", exchange: "NSE", country: "India", latest_price: 4260.00, daily_change_pct: 0.65 },
+    { ticker: "PUM.DE", company_name: "Puma SE", exchange: "XETRA", country: "Germany", latest_price: 22.16, daily_change_pct: 0.65 },
     { ticker: "INFY.NS", company_name: "Infosys Ltd", exchange: "NSE", country: "India", latest_price: 1895.50, daily_change_pct: 1.12 },
     { ticker: "RELIANCE.NS", company_name: "Reliance Industries", exchange: "NSE", country: "India", latest_price: 2950.00, daily_change_pct: 0.80 },
     { ticker: "SAP.DE", company_name: "SAP SE", exchange: "XETRA", country: "Germany", latest_price: 204.10, daily_change_pct: 0.74 },
@@ -260,18 +261,128 @@ function setupEventListeners() {
         });
     }
 
+    // Left Navigation Rail Interactions
+    const railDashboardBtn = document.getElementById('rail-btn-dashboard');
+    const railAnalysisBtn = document.getElementById('rail-btn-analysis');
+    const railEventsBtn = document.getElementById('rail-btn-events');
+    const railWatchlistBtn = document.getElementById('rail-btn-watchlist');
+    const railAiBtn = document.getElementById('rail-btn-ai');
+    const railSettingsBtn = document.getElementById('rail-btn-settings');
+
+    function setActiveRail(btnId) {
+        document.querySelectorAll('.rail-nav-btn').forEach(b => {
+            b.classList.toggle('active', b.id === btnId);
+        });
+    }
+
+    if (railDashboardBtn) {
+        railDashboardBtn.addEventListener('click', () => {
+            setActiveRail('rail-btn-dashboard');
+            closeSettingsModal();
+            closeAiDrawer();
+            const target = document.querySelector('.company-header-strip') || document.querySelector('.terminal-chart-panel');
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
+    if (railAnalysisBtn) {
+        railAnalysisBtn.addEventListener('click', () => {
+            setActiveRail('rail-btn-analysis');
+            closeSettingsModal();
+            const target = document.querySelector('.analysis-parameters-bar');
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const field = document.getElementById('ticker');
+                if (field) {
+                    field.focus();
+                    field.select();
+                }
+            }
+        });
+    }
+
+    if (railEventsBtn) {
+        railEventsBtn.addEventListener('click', () => {
+            setActiveRail('rail-btn-events');
+            closeSettingsModal();
+            const target = document.querySelector('.terminal-events-section');
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const search = document.getElementById('events-search');
+                if (search) search.focus();
+            }
+        });
+    }
+
+    if (railWatchlistBtn) {
+        railWatchlistBtn.addEventListener('click', () => {
+            setActiveRail('rail-btn-watchlist');
+            closeSettingsModal();
+            const target = document.querySelector('.terminal-market-panel');
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                const filterInput = document.getElementById('markets-filter-input');
+                if (filterInput) filterInput.focus();
+            }
+        });
+    }
+
+    if (railAiBtn) {
+        railAiBtn.addEventListener('click', () => {
+            setActiveRail('rail-btn-ai');
+            closeSettingsModal();
+            openAiDrawer();
+        });
+    }
+
+    if (railSettingsBtn) {
+        railSettingsBtn.addEventListener('click', () => {
+            setActiveRail('rail-btn-settings');
+            openSettingsModal();
+        });
+    }
+
     // AI Drawer Open/Close Controls
     const headerCreditsBtn = document.getElementById('header-ai-credits');
-    const railAiBtn = document.getElementById('rail-btn-ai');
     const marketAiBtn = document.getElementById('market-open-ai-btn');
     const drawerCloseBtn = document.getElementById('drawer-close-btn');
 
-    [headerCreditsBtn, railAiBtn, marketAiBtn].forEach(el => {
-        if (el) el.addEventListener('click', openAiDrawer);
+    [headerCreditsBtn, marketAiBtn].forEach(el => {
+        if (el) el.addEventListener('click', () => {
+            setActiveRail('rail-btn-ai');
+            openAiDrawer();
+        });
     });
 
     if (drawerCloseBtn) {
         drawerCloseBtn.addEventListener('click', closeAiDrawer);
+    }
+
+    // Settings Modal Controls
+    const settingsCloseBtn = document.getElementById('settings-close-btn');
+    const settingsBackdrop = document.getElementById('settings-backdrop');
+    const btnEnvProd = document.getElementById('btn-env-production');
+    const btnEnvLocal = document.getElementById('btn-env-local');
+    const btnResetCreds = document.getElementById('btn-reset-credits');
+
+    if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsModal);
+    if (settingsBackdrop) settingsBackdrop.addEventListener('click', closeSettingsModal);
+    if (btnEnvProd) {
+        btnEnvProd.addEventListener('click', () => {
+            window.NoCap.setBackend('production');
+        });
+    }
+    if (btnEnvLocal) {
+        btnEnvLocal.addEventListener('click', () => {
+            window.NoCap.setBackend('local');
+        });
+    }
+    if (btnResetCreds) {
+        btnResetCreds.addEventListener('click', () => {
+            currentCredits = TOTAL_CREDITS;
+            updateCreditsUI();
+            updateSettingsUI();
+        });
     }
 
     // Chat Form Submit
@@ -292,9 +403,12 @@ function setupEventListeners() {
         });
     });
 
-    // Global shortcut '/' to focus search
+    // Global keyboard shortcuts: '/' to focus search, 'Escape' to close drawers/modals
     document.addEventListener('keydown', (e) => {
-        if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        if (e.key === 'Escape') {
+            closeAiDrawer();
+            closeSettingsModal();
+        } else if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
             e.preventDefault();
             const search = document.getElementById('global-search-input');
             if (search) search.focus();
@@ -524,33 +638,24 @@ function setMetricCell(el, val, unit = '', signed = true) {
 }
 
 /**
- * Chart.js Historical Price & Events Rendering
+ * Chart.js Historical Price & Events Rendering (Real Candlestick Chart)
+ * - Green candle when Close >= Open
+ * - Red candle when Close < Open
+ * - Wick represents High and Low
+ * - Candle body represents Open and Close
+ * - Preserved drop-event markers at historical drop dates
+ * - Real Volume section with matched green/red colors below price chart
  */
 function renderChart(data) {
     const ctx = document.getElementById('mainChart');
     if (!ctx) return;
 
-    const prices = data.price_history || [];
+    const rawPrices = data.price_history || [];
     const events = data.events || [];
 
-    if (prices.length === 0) {
+    if (rawPrices.length === 0) {
         return;
     }
-
-    // Build event date set for fast lookup
-    const eventDateMap = new Map();
-    events.forEach(ev => {
-        eventDateMap.set(ev.event_date, ev);
-    });
-
-    const labels = prices.map(p => p.date);
-    const closePrices = prices.map(p => p.close);
-
-    // Event markers for price view
-    const pointRadii = prices.map(p => eventDateMap.has(p.date) ? 6 : 0);
-    const pointColors = prices.map(p => eventDateMap.has(p.date) ? '#ef4444' : 'transparent');
-    const pointBorderColors = prices.map(p => eventDateMap.has(p.date) ? '#ffffff' : 'transparent');
-    const pointBorderWidths = prices.map(p => eventDateMap.has(p.date) ? 2 : 0);
 
     if (chartInstance) {
         chartInstance.destroy();
@@ -561,23 +666,80 @@ function renderChart(data) {
         return;
     }
 
-    // Prepare volume data & per-bar colors based on that day's price movement:
-    // GREEN/TEAL when Close >= Open
-    // RED/PINK when Close < Open
-    const volumes = prices.map(p => (p.volume !== undefined && p.volume !== null) ? Number(p.volume) : 0);
+    // Build event date set for fast lookup
+    const eventDateMap = new Map();
+    events.forEach(ev => {
+        if (ev && ev.event_date) {
+            eventDateMap.set(ev.event_date, ev);
+        }
+    });
+
+    // 1. Safe handling of missing/null OHLC/volume values:
+    // Skip invalid candle rows, never send NaN or Infinity to browser, no fake zeros.
+    const validPrices = [];
+    for (let i = 0; i < rawPrices.length; i++) {
+        const p = rawPrices[i];
+        if (!p || !p.date) continue;
+        const o = Number(p.open);
+        const h = Number(p.high);
+        const l = Number(p.low);
+        const c = Number(p.close);
+        if (!Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(l) || !Number.isFinite(c)) continue;
+        if (o <= 0 || h <= 0 || l <= 0 || c <= 0) continue;
+
+        const v = (p.volume !== undefined && p.volume !== null && Number.isFinite(Number(p.volume)))
+            ? Math.max(0, Number(p.volume))
+            : 0;
+
+        validPrices.push({
+            date: String(p.date),
+            open: o,
+            high: Math.max(h, o, c),
+            low: Math.min(l, o, c),
+            close: c,
+            volume: v
+        });
+    }
+
+    if (validPrices.length === 0) {
+        return;
+    }
+
+    const labels = validPrices.map(p => p.date);
+    const highs = validPrices.map(p => p.high);
+    const lows = validPrices.map(p => p.low);
+
+    // 2. Prepare volume data & per-bar colors based on that day's candle direction:
+    // Green (#10b981) when Close >= Open, Red (#ef4444) when Close < Open
+    const volumes = validPrices.map(p => p.volume);
     const volumeColors = [];
     const volumeBorderColors = [];
-    for (let i = 0; i < prices.length; i++) {
-        const p = prices[i];
-        const openVal = (p.open !== undefined && p.open !== null) ? Number(p.open) : Number(p.close);
-        const closeVal = Number(p.close);
-        const isUp = (closeVal >= openVal);
+    for (let i = 0; i < validPrices.length; i++) {
+        const p = validPrices[i];
+        const isUp = (p.close >= p.open);
         if (isUp) {
-            volumeColors.push('rgba(16, 185, 129, 0.75)'); // Teal / Green
+            volumeColors.push('rgba(16, 185, 129, 0.7)'); // Green
             volumeBorderColors.push('#10b981');
         } else {
-            volumeColors.push('rgba(239, 68, 68, 0.75)'); // Red / Pink
+            volumeColors.push('rgba(239, 68, 68, 0.7)'); // Red
             volumeBorderColors.push('#ef4444');
+        }
+    }
+
+    // 3. Drop event markers on the price chart
+    const dropMarkerData = [];
+    const dropPointRadii = [];
+    const dropPointHoverRadii = [];
+    for (let i = 0; i < validPrices.length; i++) {
+        const p = validPrices[i];
+        if (eventDateMap.has(p.date)) {
+            dropMarkerData.push(p.high);
+            dropPointRadii.push(6);
+            dropPointHoverRadii.push(9);
+        } else {
+            dropMarkerData.push(null);
+            dropPointRadii.push(0);
+            dropPointHoverRadii.push(0);
         }
     }
 
@@ -608,28 +770,151 @@ function renderChart(data) {
         }
     };
 
+    // Dedicated Candlestick Renderer Plugin
+    // Draws High-Low wicks and Open-Close candle bodies with subpixel precision
+    const candlestickPlugin = {
+        id: 'candlestickPlugin',
+        afterDatasetsDraw(chart) {
+            if (currentChartMode !== 'price') return;
+            const ctx = chart.ctx;
+            const xScale = chart.scales['x'];
+            const yScale = chart.scales['y'];
+            if (!xScale || !yScale) return;
+
+            const area = chart.chartArea;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(area.left, area.top, area.width, area.height);
+            ctx.clip();
+
+            const total = validPrices.length;
+            if (total === 0) {
+                ctx.restore();
+                return;
+            }
+
+            // Determine visible range
+            const minVal = xScale.min;
+            const maxVal = xScale.max;
+            let startIdx = 0;
+            let endIdx = total - 1;
+
+            if (minVal !== undefined && minVal !== null) {
+                const s = validPrices.findIndex(p => p.date === minVal);
+                if (s !== -1) startIdx = s;
+                else if (typeof minVal === 'number') startIdx = Math.max(0, Math.min(total - 1, Math.floor(minVal)));
+            }
+            if (maxVal !== undefined && maxVal !== null) {
+                const e = validPrices.findIndex(p => p.date === maxVal);
+                if (e !== -1) endIdx = e;
+                else if (typeof maxVal === 'number') endIdx = Math.max(0, Math.min(total - 1, Math.ceil(maxVal)));
+            }
+
+            const visibleCount = Math.max(1, endIdx - startIdx + 1);
+            const slotWidth = area.width / visibleCount;
+            const candleWidth = Math.max(1.5, Math.min(18, slotWidth * 0.75));
+            const wickWidth = candleWidth >= 8 ? 1.5 : 1;
+
+            for (let i = startIdx; i <= endIdx; i++) {
+                const p = validPrices[i];
+                if (!p) continue;
+
+                let x = xScale.getPixelForValue(p.date);
+                if (x === undefined || isNaN(x)) {
+                    x = xScale.getPixelForTick(i);
+                }
+                if (x === undefined || isNaN(x)) continue;
+                if (x < area.left - 25 || x > area.right + 25) continue;
+
+                const yOpen = yScale.getPixelForValue(p.open);
+                const yClose = yScale.getPixelForValue(p.close);
+                const yHigh = yScale.getPixelForValue(p.high);
+                const yLow = yScale.getPixelForValue(p.low);
+
+                if (isNaN(yOpen) || isNaN(yClose) || isNaN(yHigh) || isNaN(yLow)) continue;
+
+                const isBullish = (p.close >= p.open);
+                const color = isBullish ? '#10b981' : '#ef4444';
+
+                // 1. Draw Wick (High to Low)
+                ctx.strokeStyle = color;
+                ctx.lineWidth = wickWidth;
+                ctx.beginPath();
+                const alignX = Math.round(x) + (wickWidth % 2 === 1 ? 0.5 : 0);
+                ctx.moveTo(alignX, Math.round(yHigh));
+                ctx.lineTo(alignX, Math.round(yLow));
+                ctx.stroke();
+
+                // 2. Draw Candle Body (Open to Close)
+                const bodyTop = Math.min(yOpen, yClose);
+                const bodyBottom = Math.max(yOpen, yClose);
+                const bodyHeight = Math.max(2, bodyBottom - bodyTop);
+                const bodyLeft = Math.round(x - candleWidth / 2);
+
+                ctx.fillStyle = color;
+                ctx.fillRect(bodyLeft, Math.round(bodyTop), Math.round(candleWidth), Math.round(bodyHeight));
+
+                if (candleWidth >= 4) {
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(bodyLeft, Math.round(bodyTop), Math.round(candleWidth), Math.round(bodyHeight));
+                }
+            }
+
+            ctx.restore();
+        }
+    };
+
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
             datasets: [
+                // 0. Primary High bounds (invisible line establishing y-scale top)
                 {
                     type: 'line',
-                    label: 'Historical Price',
-                    data: closePrices,
+                    label: 'High Bounds',
+                    data: highs,
                     yAxisID: 'y',
-                    borderColor: '#06b6d4',
-                    borderWidth: 1.6,
-                    backgroundColor: 'rgba(6, 182, 212, 0.05)',
-                    fill: true,
-                    tension: 0.1,
-                    pointRadius: pointRadii,
-                    pointHoverRadius: 8,
-                    pointBackgroundColor: pointColors,
-                    pointBorderColor: pointBorderColors,
-                    pointBorderWidth: pointBorderWidths,
-                    order: 1
+                    borderColor: 'transparent',
+                    backgroundColor: 'transparent',
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    showLine: false,
+                    order: 10
                 },
+                // 1. Primary Low bounds (invisible line establishing y-scale bottom)
+                {
+                    type: 'line',
+                    label: 'Low Bounds',
+                    data: lows,
+                    yAxisID: 'y',
+                    borderColor: 'transparent',
+                    backgroundColor: 'transparent',
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    showLine: false,
+                    order: 11
+                },
+                // 2. Drop Events Node Dataset (red nodes marking detected drop events)
+                {
+                    type: 'line',
+                    label: 'Drop Events',
+                    data: dropMarkerData,
+                    yAxisID: 'y',
+                    borderColor: 'transparent',
+                    borderWidth: 0,
+                    showLine: false,
+                    pointRadius: dropPointRadii,
+                    pointHoverRadius: dropPointHoverRadii,
+                    pointBackgroundColor: '#ef4444',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    order: 0
+                },
+                // 3. Volume Bar Dataset
                 {
                     type: 'bar',
                     label: 'Volume',
@@ -639,14 +924,14 @@ function renderChart(data) {
                     borderColor: volumeBorderColors,
                     borderWidth: 0.8,
                     borderRadius: 0,
-                    barPercentage: 0.95,
+                    barPercentage: 0.9,
                     categoryPercentage: 1.0,
-                    maxBarThickness: 12,
+                    maxBarThickness: 16,
                     order: 2
                 }
             ]
         },
-        plugins: [volumeSectionPlugin],
+        plugins: [volumeSectionPlugin, candlestickPlugin],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -667,28 +952,43 @@ function renderChart(data) {
                     titleFont: { family: 'JetBrains Mono', size: 12 },
                     bodyFont: { family: 'JetBrains Mono', size: 11 },
                     callbacks: {
+                        title: function(items) {
+                            if (!items || !items.length) return '';
+                            const idx = items[0].dataIndex;
+                            const p = validPrices[idx];
+                            return p ? `Trading Date: ${p.date}` : '';
+                        },
                         label: function(context) {
                             if (context.datasetIndex === 0) {
                                 const idx = context.dataIndex;
-                                const p = prices[idx] || {};
-                                const close = p.close !== undefined ? Number(p.close) : context.parsed.y;
-                                const open = p.open !== undefined ? Number(p.open) : close;
+                                const p = validPrices[idx];
+                                if (!p) return null;
+                                const open = p.open;
+                                const high = p.high;
+                                const low = p.low;
+                                const close = p.close;
                                 const chg = open ? ((close - open) / open * 100) : 0;
                                 const chgSign = chg > 0 ? '+' : '';
-                                const vol = (p.volume !== undefined && p.volume !== null) ? Number(p.volume) : (volumes[idx] || 0);
+                                const vol = p.volume;
+                                const isUp = (close >= open);
+                                const tag = isUp ? '▲' : '▼';
 
                                 let lines = [
-                                    `Close:  $${close.toFixed(2)}`,
                                     `Open:   $${open.toFixed(2)}`,
-                                    `Change: ${chgSign}${chg.toFixed(2)}%`,
+                                    `High:   $${high.toFixed(2)}`,
+                                    `Low:    $${low.toFixed(2)}`,
+                                    `Close:  $${close.toFixed(2)}`,
+                                    `Change: ${chgSign}${chg.toFixed(2)}% ${tag}`,
                                     `Volume: ${formatVolumeDetailed(vol)}`
                                 ];
 
                                 if (eventDateMap.has(p.date)) {
                                     const ev = eventDateMap.get(p.date);
                                     const fr = ev.forward_returns || {};
+                                    lines.push(`───────────────────────────`);
                                     lines.push(`⚠️ Detected Drop: -${Math.abs(ev.drop_percentage).toFixed(2)}%`);
                                     lines.push(`Start Price: $${ev.start_price.toFixed(2)}`);
+                                    lines.push(`Event Price: $${ev.event_price ? ev.event_price.toFixed(2) : close.toFixed(2)}`);
                                     lines.push(`30D Return:  ${fr['30_days'] !== null && fr['30_days'] !== undefined ? (fr['30_days'] > 0 ? '+' : '') + fr['30_days'].toFixed(2) + '%' : 'N/A'}`);
                                     lines.push(`90D Return:  ${fr['90_days'] !== null && fr['90_days'] !== undefined ? (fr['90_days'] > 0 ? '+' : '') + fr['90_days'].toFixed(2) + '%' : 'N/A'}`);
                                     lines.push(`180D Return: ${fr['180_days'] !== null && fr['180_days'] !== undefined ? (fr['180_days'] > 0 ? '+' : '') + fr['180_days'].toFixed(2) + '%' : 'N/A'}`);
@@ -725,6 +1025,7 @@ function renderChart(data) {
                     position: 'right',
                     stack: 'v-stack',
                     stackWeight: 3.8,
+                    grace: '4%',
                     grid: { color: '#101622', drawTicks: false },
                     ticks: {
                         color: '#64748b',
@@ -758,6 +1059,75 @@ function renderChart(data) {
         }
     });
 
+    applyChartRange(currentRange);
+}
+
+/**
+ * Preserved Line Chart Implementation (Retained for verification & fallback)
+ */
+function renderLineChart(data) {
+    const ctx = document.getElementById('mainChart');
+    if (!ctx) return;
+    const prices = data.price_history || [];
+    const events = data.events || [];
+    if (prices.length === 0) return;
+
+    const eventDateMap = new Map();
+    events.forEach(ev => eventDateMap.set(ev.event_date, ev));
+    const labels = prices.map(p => p.date);
+    const closePrices = prices.map(p => p.close);
+    const pointRadii = prices.map(p => eventDateMap.has(p.date) ? 6 : 0);
+    const pointColors = prices.map(p => eventDateMap.has(p.date) ? '#ef4444' : 'transparent');
+    const pointBorderColors = prices.map(p => eventDateMap.has(p.date) ? '#ffffff' : 'transparent');
+    const pointBorderWidths = prices.map(p => eventDateMap.has(p.date) ? 2 : 0);
+
+    if (chartInstance) chartInstance.destroy();
+    const volumes = prices.map(p => (p.volume !== undefined && p.volume !== null) ? Number(p.volume) : 0);
+    const volumeColors = prices.map(p => Number(p.close) >= Number(p.open || p.close) ? 'rgba(16, 185, 129, 0.75)' : 'rgba(239, 68, 68, 0.75)');
+
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: 'Historical Price',
+                    data: closePrices,
+                    yAxisID: 'y',
+                    borderColor: '#06b6d4',
+                    borderWidth: 1.6,
+                    backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                    fill: true,
+                    tension: 0.1,
+                    pointRadius: pointRadii,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: pointColors,
+                    pointBorderColor: pointBorderColors,
+                    pointBorderWidth: pointBorderWidths,
+                    order: 1
+                },
+                {
+                    type: 'bar',
+                    label: 'Volume',
+                    data: volumes,
+                    yAxisID: 'volume',
+                    backgroundColor: volumeColors,
+                    borderWidth: 0.8,
+                    order: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { grid: { color: '#101622' } },
+                y: { stack: 'v-stack', stackWeight: 3.8 },
+                volume: { stack: 'v-stack', stackWeight: 1.2 }
+            }
+        }
+    });
     applyChartRange(currentRange);
 }
 
@@ -1025,7 +1395,7 @@ function setupGlobalSearch() {
                     .then(data => {
                         const results = Array.isArray(data) ? data : (data.results || []);
                         if (results.length > 0) {
-                            selectCompany(results[0].ticker);
+                            selectCompany(results[0].ticker, results[0]);
                             dropdown.classList.add('hidden');
                             input.value = '';
                         } else {
@@ -1075,7 +1445,7 @@ function renderSearchDropdown(results) {
         row.appendChild(textCol);
 
         row.addEventListener('click', () => {
-            selectCompany(item.ticker);
+            selectCompany(item.ticker, item);
             dropdown.classList.add('hidden');
             const searchInput = document.getElementById('global-search-input');
             if (searchInput) searchInput.value = '';
@@ -1128,7 +1498,16 @@ async function loadMarketsList() {
         const url = `${MARKETS_URL}?${params.toString()}`;
         const res = await fetch(url);
         if (res.ok) {
-            marketsData = await res.json();
+            const rawData = await res.json();
+            if (Array.isArray(rawData)) {
+                marketsData = rawData;
+            } else if (rawData && Array.isArray(rawData.markets)) {
+                marketsData = rawData.markets;
+            } else if (rawData && Array.isArray(rawData.results)) {
+                marketsData = rawData.results;
+            } else {
+                marketsData = [...DEFAULT_MARKETS_CACHE];
+            }
             const countTag = document.getElementById('dock-markets-count');
             if (countTag) countTag.textContent = marketsData.length;
 
@@ -1146,6 +1525,9 @@ async function loadMarketsList() {
         }
     } catch (e) {
         console.warn("Markets refresh failed; using default asset list.", e);
+        if (!Array.isArray(marketsData) || marketsData.length === 0) {
+            marketsData = [...DEFAULT_MARKETS_CACHE];
+        }
         renderMarketsList(currentMarketFilter);
     }
 }
@@ -1154,6 +1536,10 @@ function renderMarketsList(filter = '') {
     const container = document.getElementById('markets-list-container');
     if (!container) return;
     container.innerHTML = '';
+
+    if (!Array.isArray(marketsData) || marketsData.length === 0) {
+        marketsData = [...DEFAULT_MARKETS_CACHE];
+    }
 
     const list = marketsData.filter(m => {
         if (!filter) return true;
@@ -1212,7 +1598,7 @@ function renderMarketsList(filter = '') {
         row.appendChild(right);
 
         row.addEventListener('click', () => {
-            selectCompany(item.ticker);
+            selectCompany(item.ticker, item);
         });
 
         container.appendChild(row);
@@ -1226,11 +1612,86 @@ function highlightActiveMarketRow(ticker) {
     });
 }
 
-function selectCompany(ticker) {
+function selectCompany(ticker, fallbackMetadata = null) {
     if (!ticker) return;
+    const cleanTicker = ticker.trim().toUpperCase();
     const inputTicker = document.getElementById('ticker');
-    if (inputTicker) inputTicker.value = ticker.toUpperCase();
+    if (inputTicker) inputTicker.value = cleanTicker;
+
+    // Highlight row in right Markets list immediately
+    highlightActiveMarketRow(cleanTicker);
+
+    // Look for company in local marketsData or fallbackMetadata
+    let item = fallbackMetadata;
+    if (!item && Array.isArray(marketsData)) {
+        item = marketsData.find(m => (m.ticker || '').toUpperCase() === cleanTicker);
+    }
+
+    if (item) {
+        // Immediate visual header update
+        const nameEl = document.getElementById('company-header-name');
+        const tickerEl = document.getElementById('header-ticker');
+        const exchEl = document.getElementById('company-header-exchange');
+        const countryEl = document.getElementById('company-header-country');
+        const chartSym = document.getElementById('chart-symbol');
+        const logoWrap = document.getElementById('company-header-logo-wrap');
+        const priceEl = document.getElementById('company-header-price');
+        const changeEl = document.getElementById('company-header-change');
+
+        if (nameEl) nameEl.textContent = item.company_name || cleanTicker;
+        if (tickerEl) tickerEl.textContent = cleanTicker;
+        if (exchEl) exchEl.textContent = item.exchange || 'EQUITY';
+        if (countryEl) countryEl.textContent = item.country || 'Global';
+        if (chartSym) chartSym.textContent = cleanTicker;
+
+        if (logoWrap && window.createCompanyLogo) {
+            logoWrap.innerHTML = '';
+            logoWrap.appendChild(window.createCompanyLogo(cleanTicker, item.company_name || cleanTicker, 'lg', item.logo_url));
+        }
+
+        if (item.latest_price !== undefined && item.latest_price !== null) {
+            if (priceEl) priceEl.textContent = `$${Number(item.latest_price).toFixed(2)}`;
+            if (changeEl && item.daily_change_pct !== undefined && item.daily_change_pct !== null) {
+                const isPos = item.daily_change_pct >= 0;
+                changeEl.textContent = `${isPos ? '+' : ''}${Number(item.daily_change_pct).toFixed(2)}%`;
+                changeEl.className = `price-change-tag ${isPos ? 'positive' : 'negative'}`;
+            }
+        }
+    } else {
+        renderInitialCompanyHeader(cleanTicker);
+    }
+
+    // Trigger full deterministic analysis
     triggerAnalysis();
+}
+
+function openSettingsModal() {
+    const modal = document.getElementById('terminal-settings-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        updateSettingsUI();
+    }
+}
+
+function closeSettingsModal() {
+    const modal = document.getElementById('terminal-settings-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function updateSettingsUI() {
+    const activeApiEl = document.getElementById('settings-active-api');
+    const creditsEl = document.getElementById('settings-credits-display');
+    const btnProd = document.getElementById('btn-env-production');
+    const btnLocal = document.getElementById('btn-env-local');
+
+    if (activeApiEl) activeApiEl.textContent = API_BASE_URL;
+    if (creditsEl) creditsEl.textContent = `${currentCredits} / ${TOTAL_CREDITS} cr`;
+
+    const isProd = API_BASE_URL === ENV_CONFIG.production;
+    if (btnProd) btnProd.classList.toggle('active', isProd);
+    if (btnLocal) btnLocal.classList.toggle('active', !isProd);
 }
 
 /**
@@ -1521,3 +1982,8 @@ window.triggerAnalysis = triggerAnalysis;
 window.selectCompany = selectCompany;
 window.setChartRange = setChartRange;
 window.getFilteredAndSortedEvents = getFilteredAndSortedEvents;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.openAiDrawer = openAiDrawer;
+window.closeAiDrawer = closeAiDrawer;
+window.getChartInstance = () => chartInstance;

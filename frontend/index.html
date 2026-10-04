@@ -455,6 +455,80 @@
                 <button type="submit" class="drawer-send-btn">SEND</button>
             </form>
         </div>
+
+        <!-- ====================================================================
+             TERMINAL SETTINGS & CONFIGURATION MODAL
+             ==================================================================== -->
+        <div class="terminal-settings-modal hidden" id="terminal-settings-modal">
+            <div class="settings-modal-backdrop" id="settings-backdrop"></div>
+            <div class="settings-modal-dialog">
+                <div class="settings-header">
+                    <div class="settings-header-left">
+                        <span class="settings-header-icon">⚙</span>
+                        <div>
+                            <span class="settings-title">Terminal Settings & Environment</span>
+                            <span class="settings-sub">Institutional Configuration</span>
+                        </div>
+                    </div>
+                    <button type="button" class="drawer-close-btn" id="settings-close-btn" aria-label="Close Settings">✕</button>
+                </div>
+
+                <div class="settings-body">
+                    <!-- 1. API Backend Environment -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">BACKEND API CONFIGURATION</div>
+                        <div class="settings-row">
+                            <span class="settings-label">Active API Target:</span>
+                            <span class="settings-value mono" id="settings-active-api">https://nocap-stocks-api.onrender.com</span>
+                        </div>
+                        <div class="settings-env-toggle-group">
+                            <button type="button" class="settings-env-btn" id="btn-env-production">Production (Render)</button>
+                            <button type="button" class="settings-env-btn" id="btn-env-local">Local Dev (Port 5000)</button>
+                        </div>
+                    </div>
+
+                    <!-- 2. System Status & Connectivity -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">SYSTEM STATUS</div>
+                        <div class="settings-row">
+                            <span class="settings-label">Supabase Database:</span>
+                            <span class="settings-value status-online" id="settings-supabase-status">Connected</span>
+                        </div>
+                        <div class="settings-row">
+                            <span class="settings-label">Market Data Feed:</span>
+                            <span class="settings-value status-online">Yahoo Finance (Real-time & Historical OHLC)</span>
+                        </div>
+                        <div class="settings-row">
+                            <span class="settings-label">AI Reasoning Engine:</span>
+                            <span class="settings-value" style="color: var(--accent-blue);">Google Gemma 3 (via Backend)</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. AI Assistant Credits -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">AI ASSISTANT CREDITS</div>
+                        <div class="settings-row">
+                            <span class="settings-label">Available Terminal Credits:</span>
+                            <span class="settings-value mono" id="settings-credits-display">500 / 500 cr</span>
+                        </div>
+                        <button type="button" class="terminal-btn-secondary" id="btn-reset-credits" style="margin-top: 8px; width: 100%;">Reset AI Credits to 500</button>
+                    </div>
+
+                    <!-- 4. Terminal Hotkeys -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">TERMINAL KEYBOARD SHORTCUTS</div>
+                        <div class="settings-row">
+                            <span class="settings-label">Global Search:</span>
+                            <kbd class="settings-kbd">/</kbd>
+                        </div>
+                        <div class="settings-row">
+                            <span class="settings-label">Close Overlays:</span>
+                            <kbd class="settings-kbd">Esc</kbd>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Application Scripts -->

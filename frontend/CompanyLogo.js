@@ -8,6 +8,7 @@
 
 // Inject essential logo styles automatically to prevent missing-CSS issues
 (function injectLogoStyles() {
+    if (typeof document === 'undefined') return;
     if (document.getElementById('company-logo-styles')) return;
     const style = document.createElement('style');
     style.id = 'company-logo-styles';
@@ -54,7 +55,11 @@
             font-weight: 700;
         }
     `;
-    document.head.appendChild(style);
+    if (document.head) {
+        document.head.appendChild(style);
+    } else if (document.body) {
+        document.body.appendChild(style);
+    }
 })();
 
 const BRAND_SVGS = {

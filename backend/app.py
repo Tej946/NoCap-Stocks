@@ -36,33 +36,49 @@ app = Flask(__name__)
 
 # -----------------------------------------------------------------------
 # CORS Configuration
-# Always allow the two standard NoCap frontend origins (ports 3000 & 8000)
-# in addition to anything specified in CORS_ORIGINS env var.
+# Allowed origins for NoCap Stocks:
+# - Production frontend: https://nocap-stocks.onrender.com
+# - Local development frontends: localhost and 127.0.0.1 on ports 3000 & 8000
+# - Plus any origins explicitly specified in CORS_ORIGINS env var.
+# NOTE: Wildcard "*" is never used as the final production CORS origin.
 # -----------------------------------------------------------------------
 _DEFAULT_CORS_ORIGINS = [
+    "https://nocap-stocks.onrender.com",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
     "http://127.0.0.1:8000",
     "http://localhost:8000",
 ]
+
+_cors_origins = list(_DEFAULT_CORS_ORIGINS)
 _env_cors = os.environ.get("CORS_ORIGINS", "").strip()
-if _env_cors == "*":
-    _cors_origins = "*"
-else:
-    _cors_origins = list(_DEFAULT_CORS_ORIGINS)
-    if _env_cors:
-        for _o in _env_cors.split(","):
-            _o = _o.strip()
-            if _o and _o not in _cors_origins:
-                _cors_origins.append(_o)
+if _env_cors and _env_cors != "*":
+    for _o in _env_cors.split(","):
+        _clean = _o.strip().rstrip("/")
+        if _clean and _clean not in _cors_origins:
+            _cors_origins.append(_clean)
 
 CORS(
     app,
-    origins=_cors_origins,
-    methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-    allow_headers=["Content-Type", "Accept", "Authorization", "X-Requested-With"],
-    supports_credentials=False,
+    resources={
+        r"/*": {
+            "origins": _cors_origins,
+            "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+            "allow_headers": ["Content-Type", "Accept", "Authorization", "X-Requested-With"],
+            "supports_credentials": False,
+        }
+    },
 )
+
+@app.after_request
+def add_cors_headers(response):
+    """Ensure CORS headers are present on all responses if requested by an allowed origin."""
+    origin = request.headers.get("Origin")
+    if origin and origin.rstrip("/") in [o.rstrip("/") for o in _cors_origins]:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept, Authorization, X-Requested-With"
+    return response
 
 # Build Company Metadata dictionary from Global Catalog
 COMPANY_METADATA = {}
