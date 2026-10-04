@@ -2,5 +2,7 @@ Flask
 flask-cors
 yfinance
 pandas
+numpy
 python-dotenv
 supabase
+gunicorn

@@ -45,16 +45,20 @@ _DEFAULT_CORS_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",
 ]
-_env_cors = os.environ.get("CORS_ORIGINS", "")
-if _env_cors and _env_cors != "*":
-    for _o in _env_cors.split(","):
-        _o = _o.strip()
-        if _o and _o not in _DEFAULT_CORS_ORIGINS:
-            _DEFAULT_CORS_ORIGINS.append(_o)
+_env_cors = os.environ.get("CORS_ORIGINS", "").strip()
+if _env_cors == "*":
+    _cors_origins = "*"
+else:
+    _cors_origins = list(_DEFAULT_CORS_ORIGINS)
+    if _env_cors:
+        for _o in _env_cors.split(","):
+            _o = _o.strip()
+            if _o and _o not in _cors_origins:
+                _cors_origins.append(_o)
 
 CORS(
     app,
-    origins=_DEFAULT_CORS_ORIGINS,
+    origins=_cors_origins,
     methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Accept", "Authorization", "X-Requested-With"],
     supports_credentials=False,
@@ -470,6 +474,15 @@ def home():
         "supported_countries_count": len(get_supported_countries()),
         "supported_companies_count": len(GLOBAL_COMPANIES)
     })
+
+@app.route("/health")
+@app.route("/api/health")
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "service": "nocap-stocks-backend",
+        "timestamp": datetime.utcnow().isoformat()
+    }), 200
 
 @app.route("/api/supabase/test", methods=["GET"])
 def test_supabase_connection():
@@ -925,8 +938,8 @@ def chat():
     })
 
 if __name__ == "__main__":
-    host = os.environ.get("HOST", "127.0.0.1")
+    host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_DEBUG", "True").lower() in ("true", "1", "yes")
+    debug = os.environ.get("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
     print(f"Starting NoCap Global Platform server on http://{host}:{port} (debug={debug})")
     app.run(host=host, port=port, debug=debug, use_reloader=False)
