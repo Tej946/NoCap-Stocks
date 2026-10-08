@@ -482,12 +482,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         triggerAnalysis();
     }
 
-    // 2. Asynchronously fetch fresh filters, markets quotes & test Supabase
+    // 2. Asynchronously fetch fresh filters, markets quotes & test Supabase and AI status
     loadFilterDropdowns();
     loadMarketsList();
     checkBackendHealth();
+    checkAiStatus();
     initChatHistory();
 });
+
 
 /**
  * Event Listeners Registration
@@ -2094,10 +2096,21 @@ function appendChatMessage(sender, text, meta = {}) {
     if (meta.card_data) {
         const card = renderStructuredCard(meta.card_data);
         msgEl.appendChild(card);
-    } else {
+    }
+
+    // Always render message bubble if text is present
+    if (text && text.trim()) {
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble';
+        if (meta.card_data) {
+            bubble.style.marginTop = '8px';
+        }
         bubble.textContent = text;
+        msgEl.appendChild(bubble);
+    } else if (!meta.card_data) {
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble';
+        bubble.textContent = 'No message content available.';
         msgEl.appendChild(bubble);
     }
 
@@ -2154,8 +2167,18 @@ async function handleChatSubmit(e) {
     const text = chatInput.value.trim();
     if (!text) return;
 
+    const chatForm = document.getElementById('chat-input-form');
+    const sendBtn = chatForm ? chatForm.querySelector('.drawer-send-btn') : document.querySelector('.drawer-send-btn');
+
+    // 1. Show user message and clear input
     appendChatMessage('user', text);
     chatInput.value = '';
+
+    // 2. Visible loading state & disable send button
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = '...';
+    }
 
     const loadingId = 'ai-loading-' + Date.now();
     const box = document.getElementById('chat-messages');
@@ -2179,18 +2202,55 @@ async function handleChatSubmit(e) {
             credits: currentCredits
         };
 
-        const res = await fetch(CHAT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        // 3. Send POST /api/chat with timeout protection
+        let res;
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-        const data = await res.json();
-        const loader = document.getElementById(loadingId);
-        if (loader) loader.remove();
+            res = await fetch(CHAT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+        } catch (fetchErr) {
+            const errMsg = fetchErr.name === 'AbortError'
+                ? 'Request timed out after 60 seconds.'
+                : (fetchErr.message || 'Network connection failed.');
+            appendChatMessage('ai', `NoCap AI error: ${errMsg}`);
+            return;
+        }
+
+        // 4 & 5. Parse response safely
+        let data;
+        try {
+            const rawText = await res.text();
+            try {
+                data = JSON.parse(rawText);
+            } catch (jsonErr) {
+                const statusText = res.statusText || `HTTP ${res.status}`;
+                appendChatMessage('ai', `NoCap AI error: Server returned ${res.status} (${statusText}). Unable to parse response.`);
+                return;
+            }
+        } catch (readErr) {
+            appendChatMessage('ai', `NoCap AI error: Failed to read response from server.`);
+            return;
+        }
+
+        // Check if API returned an error status (200, 400, 401, 403, 404, 429, 500)
+        if (!res.ok || (data && data.success === false)) {
+            const errorMsg = data.message || (typeof data.error === 'string' ? data.error : '') || data.reply || res.statusText || `HTTP ${res.status} error`;
+            appendChatMessage('ai', `NoCap AI error: ${errorMsg}`);
+            return;
+        }
 
         if (data.insufficient_credits) {
-            appendChatMessage('ai', data.reply);
+            appendChatMessage('ai', data.reply || 'Insufficient AI credits.');
             return;
         }
 
@@ -2199,22 +2259,30 @@ async function handleChatSubmit(e) {
             updateCreditsUI();
         }
 
-        appendChatMessage('ai', data.reply, {
-            credit_cost: data.credits_deducted || data.credit_cost,
+        // 6. Render AI response & structured card
+        const replyContent = data.reply || (data.card_data ? '' : 'No response text received.');
+        appendChatMessage('ai', replyContent, {
+            credit_cost: data.credits_deducted !== undefined ? data.credits_deducted : data.credit_cost,
             card_data: data.card_data
         });
 
-        // If the reply contains newly analyzed company data, update the main terminal!
-        if (data.analysis_data && data.action_type === 'analysis') {
+        // Update dashboard if analysis data is present
+        if (data.analysis_data && (data.action_type === 'analysis' || data.ticker)) {
             const tickerInput = document.getElementById('ticker');
-            if (tickerInput) tickerInput.value = data.ticker;
+            if (tickerInput && data.ticker) tickerInput.value = data.ticker;
             renderDashboard(data.analysis_data);
         }
 
     } catch (err) {
+        appendChatMessage('ai', `NoCap AI error: ${err.message || 'Unexpected application error.'}`);
+    } finally {
+        // 7 & 8. Remove loading state & re-enable Send
         const loader = document.getElementById(loadingId);
         if (loader) loader.remove();
-        appendChatMessage('ai', `Connection error: ${err.message}`);
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'SEND';
+        }
     }
 }
 
@@ -2224,16 +2292,63 @@ async function handleChatSubmit(e) {
 async function checkBackendHealth() {
     const dot = document.getElementById('supabase-status-dot');
     const txt = document.getElementById('supabase-status-text');
+    const settingsDb = document.getElementById('settings-supabase-status');
     try {
         const res = await fetch(`${API_BASE_URL}/api/supabase/test`);
         if (res.ok) {
-            if (dot) dot.className = 'status-glow-dot green';
-            if (txt) txt.innerHTML = 'Supabase: <strong>Connected</strong>';
+            const data = await res.json();
+            const isConnected = data.connected !== false;
+            if (dot) dot.className = `status-glow-dot ${isConnected ? 'green' : 'amber'}`;
+            if (txt) txt.innerHTML = `Supabase: <strong>${isConnected ? 'Connected' : 'Degraded'}</strong>`;
+            if (settingsDb) {
+                settingsDb.textContent = isConnected ? 'Connected' : 'Degraded';
+                settingsDb.className = isConnected ? 'settings-value status-online' : 'settings-value status-warning';
+            }
         }
     } catch (e) {
         if (dot) dot.className = 'status-glow-dot green';
     }
 }
+
+/**
+ * AI Provider & Availability Check
+ */
+async function checkAiStatus() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/ai/status`);
+        if (res.ok) {
+            const data = await res.json();
+            const isGemini = data.provider === 'gemini';
+            const modelName = isGemini ? 'Gemini 2.5 Flash' : (data.model || 'Gemma 3');
+
+            // 1. Drawer subtitle
+            const drawerModel = document.querySelector('.drawer-model');
+            if (drawerModel) {
+                drawerModel.textContent = `${modelName} Reasoning Engine`;
+            }
+
+            // 2. Statusbar AI tag
+            document.querySelectorAll('.terminal-statusbar .status-item').forEach(el => {
+                if (el.textContent.includes('AI:')) {
+                    const str = el.querySelector('strong');
+                    if (str) str.textContent = modelName;
+                }
+            });
+
+            // 3. Settings modal AI label
+            document.querySelectorAll('.settings-row').forEach(row => {
+                const label = row.querySelector('.settings-label');
+                if (label && label.textContent.includes('AI Reasoning Engine')) {
+                    const val = row.querySelector('.settings-value');
+                    if (val) val.textContent = `Google ${modelName} (via Backend)`;
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('AI status check notice:', e);
+    }
+}
+
 
 function handleReset() {
     const inputTicker = document.getElementById('ticker');
