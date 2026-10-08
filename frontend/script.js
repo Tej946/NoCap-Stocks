@@ -9,7 +9,7 @@
 // ==============================================================================
 const ENV_CONFIG = {
     // Production API Base URL (Render Web Service)
-    production: 'https://nocap-stocks-api.onrender.com',
+    production: 'https://nocap-stocks-tq26.onrender.com',
     // Local Development API Base URL (Local Flask Backend)
     local: 'http://127.0.0.1:5000'
 };
@@ -17,7 +17,7 @@ const ENV_CONFIG = {
 /**
  * Resolves the active API base URL.
  * - In production environments (when hosted on Render, Vercel, Netlify, GitHub Pages, or any public domain):
- *   Uses ENV_CONFIG.production ('https://nocap-stocks-api.onrender.com').
+ *   Uses ENV_CONFIG.production ('https://nocap-stocks-tq26.onrender.com').
  * - In local environments (localhost / 127.0.0.1 / file://):
  *   Defaults to ENV_CONFIG.local ('http://127.0.0.1:5000'), while allowing instant switching
  *   to production via URL query param (?api=prod or ?api=production) or localStorage ('nocap_api_env').
