@@ -200,3 +200,7 @@ http://localhost:8000
 ## Disclaimer
 
 *NoCap Stocks is designed strictly for educational, research, and empirical study purposes. It does not provide financial advice, price targets, buy/sell recommendations, or future market guarantees. Past historical performance is never an indicator of future market returns.*
+## Project Links
+
+- [GitHub Repository](https://github.com/Tej946/NoCap-Stocks)
+- [Live Project](https://nocap-stocks.onrender.com)
