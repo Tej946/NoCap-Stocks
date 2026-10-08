@@ -28,10 +28,13 @@ try:
     from dotenv import load_dotenv
     root_env = Path(__file__).resolve().parent.parent / '.env'
     backend_env = Path(__file__).resolve().parent / '.env'
+    render_secret_env = Path('/etc/secrets/.env')
     if root_env.exists():
         load_dotenv(dotenv_path=root_env)
     if backend_env.exists():
         load_dotenv(dotenv_path=backend_env)
+    if render_secret_env.exists():
+        load_dotenv(dotenv_path=render_secret_env)
 except ImportError:
     pass
 
@@ -685,26 +688,102 @@ def test_supabase_connection():
             "message": "Supabase connection failed"
         }), 200
 
+def is_production_environment() -> bool:
+    """
+    Detects if running in production environment (e.g. Render Web Service).
+    """
+    if os.environ.get("RENDER") or os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_INSTANCE_ID"):
+        return True
+    if os.environ.get("FLASK_ENV") == "production":
+        return True
+    try:
+        from flask import has_request_context, request
+        if has_request_context():
+            host = (request.headers.get("Host", "") or request.host).lower()
+            if "onrender.com" in host or "render" in host:
+                return True
+    except Exception:
+        pass
+    return False
+
+def get_gemini_api_key() -> str:
+    """
+    Safely retrieves the Gemini API key from environment variables or Render secret files.
+    Checks candidate names without exposing values.
+    """
+    candidates = [
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GEMINI_KEY",
+        "GOOGLE_GENAI_API_KEY",
+        "GEMINI_APIKEY",
+        "GEMINI_SECRET",
+        "GOOGLE_KEY",
+    ]
+    for key in candidates:
+        val = os.environ.get(key, "").strip()
+        if val:
+            return val
+
+    # Case-insensitive / prefixed matching
+    for k, v in os.environ.items():
+        ku = k.upper().replace("-", "_")
+        if ku in [c.upper() for c in candidates] or ku.endswith("_GEMINI_API_KEY") or ku.endswith("_GOOGLE_API_KEY"):
+            if v and v.strip():
+                return v.strip()
+
+    # Check Render secret files mounted at /etc/secrets/
+    sec_dir = Path("/etc/secrets")
+    if sec_dir.exists() and sec_dir.is_dir():
+        for fname in ["GEMINI_API_KEY", "GOOGLE_API_KEY", "gemini_api_key", "google_api_key", "api_key", "key.txt"]:
+            fpath = sec_dir / fname
+            if fpath.exists() and fpath.is_file():
+                try:
+                    content = fpath.read_text(encoding="utf-8").strip()
+                    if content:
+                        return content
+                except Exception:
+                    pass
+
+    return ""
+
+def get_selected_provider() -> str:
+    """
+    Selects AI provider.
+    The production Render backend MUST NOT depend on local Ollama.
+    """
+    provider_env = os.environ.get("AI_PROVIDER", "").strip().lower()
+    if provider_env in ("gemini", "ollama"):
+        return provider_env
+    # Production on Render MUST default to Gemini
+    if is_production_environment():
+        return "gemini"
+    # Local dev with configured Gemini key uses Gemini
+    if get_gemini_api_key():
+        return "gemini"
+    # Default local development uses Ollama / Gemma 3
+    return "ollama"
+
 @app.route("/api/ai/status", methods=["GET"])
 def get_ai_status():
     """
     Returns AI reasoning engine provider, availability, and active model.
     Never exposes API keys or secrets.
     """
-    provider_env = os.environ.get("AI_PROVIDER", "").strip().lower()
-    gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    gemini_model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
-    gemma_model = os.environ.get("GEMMA_MODEL", "gemma3:4b").strip()
+    provider = get_selected_provider()
+    gemini_key = get_gemini_api_key()
+    gemini_model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    gemma_model = os.environ.get("GEMMA_MODEL", "gemma3:4b").strip() or "gemma3:4b"
     ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 
-    if provider_env == "gemini" or (not provider_env and gemini_key):
+    if provider == "gemini":
         return jsonify({
             "provider": "gemini",
             "available": bool(gemini_key),
             "model": gemini_model
         }), 200
     else:
-        # Check Ollama connectivity
+        # Check Ollama connectivity for local dev
         ollama_available = False
         try:
             req = urllib.request.Request(f"{ollama_url}/api/tags")
@@ -945,14 +1024,14 @@ def call_gemini(sys_prompt: str, user_prompt: str) -> dict:
     Uses official google-genai SDK if available, with robust REST API fallback.
     Never logs or leaks API keys.
     """
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = get_gemini_api_key()
     if not api_key:
         return {
             "success": False,
-            "error": "GEMINI_API_KEY is not configured in backend environment."
+            "error": "GEMINI_API_KEY is not configured in backend environment. Please configure GEMINI_API_KEY in Render secrets."
         }
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
     # 1. Attempt official google.genai SDK
     try:
@@ -978,6 +1057,7 @@ def call_gemini(sys_prompt: str, user_prompt: str) -> dict:
     except Exception as sdk_err:
         sdk_err_msg = str(sdk_err)
         sdk_err_msg = re.sub(r'AIza[A-Za-z0-9_-]{30,}', '[REDACTED]', sdk_err_msg)
+        sdk_err_msg = re.sub(r'key=[A-Za-z0-9_-]+', 'key=[REDACTED]', sdk_err_msg)
         print(f"[CHAT] Google GenAI SDK notice ({type(sdk_err).__name__}), attempting REST fallback: {sdk_err_msg}", flush=True)
 
     # 2. REST API fallback via HTTPS to Generative Language API
@@ -1030,6 +1110,7 @@ def call_gemini(sys_prompt: str, user_prompt: str) -> dict:
     except Exception as e:
         err_msg = str(e)
         err_msg = re.sub(r'AIza[A-Za-z0-9_-]{30,}', '[REDACTED]', err_msg)
+        err_msg = re.sub(r'key=[A-Za-z0-9_-]+', 'key=[REDACTED]', err_msg)
         return {
             "success": False,
             "error": f"Gemini API request failed: {err_msg}"
@@ -1078,13 +1159,7 @@ def ask_ai(sys_prompt: str, user_prompt: str, messages: list) -> dict:
     """
     Dispatches reasoning request to either Gemini (production) or Ollama (local development).
     """
-    provider_env = os.environ.get("AI_PROVIDER", "").strip().lower()
-    has_gemini_key = bool(os.environ.get("GEMINI_API_KEY", "").strip())
-
-    if provider_env == "gemini" or (not provider_env and has_gemini_key):
-        selected_provider = "gemini"
-    else:
-        selected_provider = "ollama"
+    selected_provider = get_selected_provider()
 
     print(f"[CHAT] selected AI provider: {selected_provider}", flush=True)
     print("[CHAT] AI request started", flush=True)
