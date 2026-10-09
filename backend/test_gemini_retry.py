@@ -193,13 +193,30 @@ class TestGeminiRetryLogic(unittest.TestCase):
         self.assertEqual(result["attempts"], 1)
         self.assertEqual(mock_sleep.call_count, 0)
 
+    @patch("app.get_company_info")
+    @patch("app.analyze_stock_drops")
     @patch("app.ask_ai")
-    def test_api_chat_503_graceful_analysis_fallback(self, mock_ask):
+    def test_api_chat_503_graceful_analysis_fallback(self, mock_ask, mock_analyze, mock_info):
         """
         When Gemini is 503 unavailable for an analysis query (e.g. 'Analyze AAPL'),
         the endpoint returns HTTP 200 with verified historical analysis, card_data,
         clearly labels AI explanation as temporarily unavailable, and deducts 0 credits.
         """
+        mock_info.return_value = {
+            "company_name": "Apple Inc.",
+            "ticker": "AAPL",
+            "exchange": "NASDAQ",
+            "country": "United States"
+        }
+        mock_analyze.return_value = {
+            "total_events_found": 12,
+            "summary_statistics": {
+                "30_days": {"count": 12, "average_return": 4.5, "win_rate": 85.0},
+                "90_days": {"count": 12, "average_return": 8.2, "win_rate": 90.0},
+                "180_days": {"count": 12, "average_return": 14.1, "win_rate": 91.7}
+            },
+            "historical_stakes": {"stakes": "HIGH", "reason": "High volatility post-drop recovery"}
+        }
         mock_ask.return_value = {
             "success": False,
             "status_code": 503,
