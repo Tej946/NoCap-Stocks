@@ -1724,15 +1724,29 @@ def test_ai_candidate_model():
 
     start_time = time.time()
     try:
-        analysis_data = analyze_stock_drops(ticker, drop_threshold, window_days, years)
-        company_info = get_company_info(ticker) or {}
-        c_name = company_info.get("company_name", ticker)
-        events = analysis_data.get("total_events_found", 0)
-        stats = analysis_data.get("summary_statistics", {})
+        custom_context = payload.get("context")
+        if custom_context:
+            context_text = custom_context
+            c_name = ticker
+        else:
+            analysis_data = analyze_stock_drops(ticker, drop_threshold, window_days, years)
+            company_info = get_company_info(ticker) or {}
+            c_name = company_info.get("company_name", ticker)
+            events = analysis_data.get("total_events_found", 0)
+            stats = analysis_data.get("summary_statistics", {})
 
-        s30 = stats.get("30_days", {})
-        s90 = stats.get("90_days", {})
-        s180 = stats.get("180_days", {})
+            s30 = stats.get("30_days", {})
+            s90 = stats.get("90_days", {})
+            s180 = stats.get("180_days", {})
+
+            context_text = (
+                f"Company: {c_name} ({ticker})\n"
+                f"Parameters: {drop_threshold}% drop within {window_days} trading days over {years} years.\n"
+                f"Total historical drop events: {events}\n"
+                f"30-day stats: {s30}\n"
+                f"90-day stats: {s90}\n"
+                f"180-day stats: {s180}\n"
+            )
 
         sys_prompt = (
             "You are NoCap AI, the historical stock analysis assistant for NoCap Stocks.\n"
@@ -1742,23 +1756,21 @@ def test_ai_candidate_model():
             "3. Do NOT provide buy, sell, or hold recommendations."
         )
         user_prompt = (
-            f"Company: {c_name} ({ticker})\n"
-            f"Parameters: {drop_threshold}% drop within {window_days} trading days over {years} years.\n"
-            f"Total historical drop events: {events}\n"
-            f"30-day stats: {s30}\n"
-            f"90-day stats: {s90}\n"
-            f"180-day stats: {s180}\n"
-            f"Explain the historical price behavior after these drops based strictly on the verified facts above."
+            f"Context:\n{context_text}\n\n"
+            f"Explain the historical price behavior after these drops for {c_name} strictly based on verified facts above."
         )
 
+        t_gemini = time.time()
         res = call_gemini(sys_prompt, user_prompt, model=model_candidate, max_retries=3, deadline_seconds=60.0)
-        latency = time.time() - start_time
+        gemini_latency = time.time() - t_gemini
+        total_latency = time.time() - start_time
 
         return jsonify(sanitize_json_value({
             "success": res.get("success", False),
             "model": model_candidate,
             "ticker": ticker,
-            "latency_seconds": round(latency, 3),
+            "gemini_latency_seconds": round(gemini_latency, 3),
+            "total_latency_seconds": round(total_latency, 3),
             "attempts": res.get("attempts", 1),
             "reply": res.get("reply", ""),
             "error": res.get("error"),
