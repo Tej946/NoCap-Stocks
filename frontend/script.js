@@ -2254,10 +2254,17 @@ async function handleChatSubmit(e) {
             return;
         }
 
-        // Check if API returned an error status (200, 400, 401, 403, 404, 429, 500)
+        // Check if API returned an error status (200, 400, 401, 403, 404, 429, 500, 503)
         if (!res.ok || (data && data.success === false)) {
-            const errorMsg = data.message || (typeof data.error === 'string' ? data.error : '') || data.reply || res.statusText || `HTTP ${res.status} error`;
-            appendChatMessage('ai', `NoCap AI error: ${errorMsg}`);
+            const errorMsg = (data && data.message) ? data.message : ((data && typeof data.error === 'string') ? data.error : '') || (data && data.reply) || res.statusText || `HTTP ${res.status} error`;
+            appendChatMessage('ai', `NoCap AI error: ${errorMsg}`, {
+                card_data: data ? data.card_data : null
+            });
+            if (data && data.analysis_data && (data.action_type === 'analysis' || data.ticker)) {
+                const tickerInput = document.getElementById('ticker');
+                if (tickerInput && data.ticker) tickerInput.value = data.ticker;
+                renderDashboard(data.analysis_data);
+            }
             return;
         }
 

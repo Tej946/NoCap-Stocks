@@ -1,11 +1,14 @@
 import os
 import re
 import math
+import time
+import random
+import email.utils
+from datetime import datetime, timezone
 import urllib.request
 import urllib.parse
 import json
 from pathlib import Path
-from datetime import datetime
 import numpy as np
 import pandas as pd
 from flask import Flask, jsonify, request
@@ -1021,21 +1024,121 @@ def analyze():
     except Exception as e:
         return jsonify({"error": f"Analysis error: {str(e)}"}), 500
 
-def call_gemini(sys_prompt: str, user_prompt: str) -> dict:
+def parse_retry_after(header_val) -> float | None:
     """
-    Invokes Google Gemini API.
-    Uses official google-genai SDK if available, with robust REST API fallback.
-    Never logs or leaks API keys.
+    Parses a Retry-After header value, which can be seconds or an HTTP date.
+    Returns bounded seconds as float, or None.
     """
-    api_key = get_gemini_api_key()
-    if not api_key:
-        return {
-            "success": False,
-            "error": "GEMINI_API_KEY is not configured in backend environment. Please configure GEMINI_API_KEY in Render secrets."
-        }
+    if not header_val:
+        return None
+    val_str = str(header_val).strip()
+    if not val_str:
+        return None
+    try:
+        sec = float(val_str)
+        if sec >= 0:
+            return min(sec, 30.0)
+    except (ValueError, TypeError):
+        pass
+    try:
+        dt = email.utils.parsedate_to_datetime(val_str)
+        if dt:
+            now_dt = datetime.now(timezone.utc)
+            delta = (dt - now_dt).total_seconds()
+            return max(0.0, min(delta, 30.0))
+    except Exception:
+        pass
+    return None
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
+def sanitize_secret_text(text: str) -> str:
+    """Removes API keys, tokens, and secrets from any error message or log string."""
+    if not text:
+        return ""
+    s = str(text)
+    s = re.sub(r'AIza[A-Za-z0-9_-]{20,}', '[REDACTED]', s)
+    s = re.sub(r'key=[A-Za-z0-9_-]+', 'key=[REDACTED]', s)
+    s = re.sub(r'Bearer\s+[A-Za-z0-9_.-]+', 'Bearer [REDACTED]', s, flags=re.IGNORECASE)
+    return s
+
+
+TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
+NON_RETRYABLE_STATUS_CODES = {400, 401, 403, 404}
+
+
+def extract_gemini_error_details(err: Exception) -> tuple[int, str, float | None]:
+    """
+    Extracts (status_code, sanitized_message, retry_after) from any SDK or HTTP exception.
+    """
+    status_code = 500
+    retry_after = None
+    raw_msg = str(err)
+
+    # 1. Check google.genai.errors.APIError (or similar SDK exceptions)
+    if hasattr(err, "code") and isinstance(err.code, int):
+        status_code = err.code
+    elif hasattr(err, "status_code") and isinstance(err.status_code, int):
+        status_code = err.status_code
+
+    # Inspect response / headers if available
+    resp = getattr(err, "response", None)
+    if resp is not None:
+        headers = getattr(resp, "headers", None)
+        if headers:
+            retry_header = headers.get("Retry-After") or headers.get("retry-after")
+            retry_after = parse_retry_after(retry_header)
+        if hasattr(resp, "status_code") and isinstance(resp.status_code, int):
+            status_code = resp.status_code
+
+    # 2. Check urllib.error.HTTPError
+    if isinstance(err, urllib.error.HTTPError):
+        status_code = err.code
+        if hasattr(err, "headers") and err.headers:
+            retry_header = err.headers.get("Retry-After") or err.headers.get("retry-after")
+            retry_after = parse_retry_after(retry_header)
+        try:
+            body = err.read().decode("utf-8", errors="replace")
+            if body:
+                raw_msg = f"HTTP {err.code}: {body}"
+        except Exception:
+            pass
+
+    # 3. Network connection errors
+    elif isinstance(err, (urllib.error.URLError, TimeoutError, ConnectionResetError)):
+        status_code = 503
+        raw_msg = f"Network connection error: {raw_msg}"
+
+    # 4. Fallback pattern matching in message
+    msg_upper = raw_msg.upper()
+    if status_code == 500:
+        if "503" in msg_upper or "UNAVAILABLE" in msg_upper or "HIGH DEMAND" in msg_upper:
+            status_code = 503
+        elif "429" in msg_upper or "RESOURCE_EXHAUSTED" in msg_upper or "RATE LIMIT" in msg_upper:
+            status_code = 429
+        elif "401" in msg_upper or "UNAUTHENTICATED" in msg_upper or "API_KEY_INVALID" in msg_upper:
+            status_code = 401
+        elif "403" in msg_upper or "PERMISSION_DENIED" in msg_upper:
+            status_code = 403
+        elif "404" in msg_upper or "NOT_FOUND" in msg_upper:
+            status_code = 404
+        elif "400" in msg_upper or "INVALID_ARGUMENT" in msg_upper:
+            status_code = 400
+
+    sanitized_msg = sanitize_secret_text(raw_msg)
+    return status_code, sanitized_msg, retry_after
+
+
+def _execute_gemini_single_attempt(
+    api_key: str,
+    model_name: str,
+    sys_prompt: str,
+    user_prompt: str,
+    timeout: int = 25
+) -> dict:
+    """
+    Executes a single invocation to Gemini via google.genai SDK or REST fallback.
+    Returns dict with success: True/False, reply/error, status_code, retry_after.
+    """
     # 1. Attempt official google.genai SDK
     try:
         from google import genai
@@ -1057,11 +1160,24 @@ def call_gemini(sys_prompt: str, user_prompt: str) -> dict:
                 "model": model_name,
                 "provider": "gemini"
             }
+        return {
+            "success": False,
+            "status_code": 500,
+            "error": "Gemini API returned an empty response candidate."
+        }
     except Exception as sdk_err:
-        sdk_err_msg = str(sdk_err)
-        sdk_err_msg = re.sub(r'AIza[A-Za-z0-9_-]{30,}', '[REDACTED]', sdk_err_msg)
-        sdk_err_msg = re.sub(r'key=[A-Za-z0-9_-]+', 'key=[REDACTED]', sdk_err_msg)
-        print(f"[CHAT] Google GenAI SDK notice ({type(sdk_err).__name__}), attempting REST fallback: {sdk_err_msg}", flush=True)
+        status_code, err_msg, retry_after = extract_gemini_error_details(sdk_err)
+        # If it's a known HTTP error code returned by Google API servers (e.g. 503, 429, 401, etc.),
+        # return the status code immediately without redundant REST call.
+        if status_code in NON_RETRYABLE_STATUS_CODES or status_code in TRANSIENT_STATUS_CODES:
+            return {
+                "success": False,
+                "status_code": status_code,
+                "error": err_msg,
+                "retry_after": retry_after
+            }
+        # Otherwise (e.g. SDK import/local setup issue), log and fallback to REST
+        print(f"[GEMINI] SDK exception ({type(sdk_err).__name__}), attempting REST fallback: {err_msg}", flush=True)
 
     # 2. REST API fallback via HTTPS to Generative Language API
     try:
@@ -1085,7 +1201,7 @@ def call_gemini(sys_prompt: str, user_prompt: str) -> dict:
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"}
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             candidates = data.get("candidates", [])
             if candidates:
@@ -1100,24 +1216,151 @@ def call_gemini(sys_prompt: str, user_prompt: str) -> dict:
                     }
             return {
                 "success": False,
+                "status_code": 500,
                 "error": "Gemini API returned an empty response candidate."
             }
-    except urllib.error.HTTPError as http_err:
-        err_body = http_err.read().decode("utf-8", errors="replace")
-        err_body = re.sub(r'AIza[A-Za-z0-9_-]{30,}', '[REDACTED]', err_body)
-        err_body = re.sub(r'key=[A-Za-z0-9_-]+', 'key=[REDACTED]', err_body)
+    except Exception as rest_err:
+        status_code, err_msg, retry_after = extract_gemini_error_details(rest_err)
         return {
             "success": False,
-            "error": f"Gemini API HTTP {http_err.code}: {err_body}"
+            "status_code": status_code,
+            "error": err_msg,
+            "retry_after": retry_after
         }
-    except Exception as e:
-        err_msg = str(e)
-        err_msg = re.sub(r'AIza[A-Za-z0-9_-]{30,}', '[REDACTED]', err_msg)
-        err_msg = re.sub(r'key=[A-Za-z0-9_-]+', 'key=[REDACTED]', err_msg)
+
+
+def call_gemini(
+    sys_prompt: str,
+    user_prompt: str,
+    max_retries: int = 3,
+    deadline_seconds: float = 60.0
+) -> dict:
+    """
+    Invokes Google Gemini API with robust retry for transient errors (HTTP 503, 429, 5xx).
+    - Up to 3 retries (4 attempts total)
+    - Exponential backoff with jitter (approx 1-2s first retry, 2-4s second retry)
+    - Respects Retry-After header
+    - Aborts immediately on non-retryable errors (400, 401, 403, 404)
+    - Strictly obeys deadline_seconds so overall request cannot exceed frontend timeout
+    - Never logs or exposes API keys or secrets
+    """
+    api_key = get_gemini_api_key()
+    if not api_key:
         return {
             "success": False,
-            "error": f"Gemini API request failed: {err_msg}"
+            "status_code": 401,
+            "is_transient": False,
+            "error": "GEMINI_API_KEY is not configured in backend environment. Please configure GEMINI_API_KEY in Render secrets."
         }
+
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    max_attempts = max_retries + 1
+    start_time = time.time()
+    last_status_code = 500
+    last_error_msg = "Unknown error"
+
+    for attempt in range(1, max_attempts + 1):
+        # Calculate per-attempt timeout bounded by remaining deadline
+        remaining_time = max(5.0, deadline_seconds - (time.time() - start_time))
+        per_call_timeout = min(30, int(remaining_time))
+
+        result = _execute_gemini_single_attempt(
+            api_key=api_key,
+            model_name=model_name,
+            sys_prompt=sys_prompt,
+            user_prompt=user_prompt,
+            timeout=per_call_timeout
+        )
+
+        if result.get("success"):
+            if attempt > 1:
+                print(f"[GEMINI] Attempt {attempt}/{max_attempts} succeeded.", flush=True)
+            return result
+
+        status_code = result.get("status_code", 500)
+        err_msg = result.get("error", "Gemini API request failed")
+        retry_after = result.get("retry_after")
+        last_status_code = status_code
+        last_error_msg = err_msg
+
+        # Check if error is explicitly non-retryable
+        if status_code in NON_RETRYABLE_STATUS_CODES:
+            print(f"[GEMINI] Non-retryable error HTTP {status_code} on attempt {attempt}: {err_msg}. Aborting immediately.", flush=True)
+            return {
+                "success": False,
+                "status_code": status_code,
+                "is_transient": False,
+                "error": err_msg,
+                "attempts": attempt
+            }
+
+        # Check if error is transient
+        is_transient = (
+            (status_code in TRANSIENT_STATUS_CODES) or
+            ("503" in err_msg) or
+            ("UNAVAILABLE" in err_msg.upper()) or
+            ("HIGH DEMAND" in err_msg.upper()) or
+            ("429" in err_msg) or
+            ("RESOURCE_EXHAUSTED" in err_msg.upper())
+        )
+
+        if not is_transient:
+            print(f"[GEMINI] Non-transient error HTTP {status_code} on attempt {attempt}: {err_msg}. Aborting.", flush=True)
+            return {
+                "success": False,
+                "status_code": status_code,
+                "is_transient": False,
+                "error": err_msg,
+                "attempts": attempt
+            }
+
+        # If all attempts exhausted:
+        if attempt == max_attempts:
+            print(f"[GEMINI] Exhausted all {max_attempts} attempts. Final error HTTP {status_code}: {err_msg}", flush=True)
+            return {
+                "success": False,
+                "status_code": status_code,
+                "is_transient": True,
+                "error": "NoCap AI is temporarily busy. Please try again shortly.",
+                "raw_error": err_msg,
+                "attempts": attempt
+            }
+
+        # Compute backoff delay with jitter
+        if retry_after is not None and retry_after > 0:
+            delay = min(float(retry_after), 15.0)
+        elif attempt == 1:
+            delay = random.uniform(1.0, 2.0)
+        elif attempt == 2:
+            delay = random.uniform(2.0, 4.0)
+        else:
+            delay = random.uniform(4.0, 8.0)
+
+        # Check deadline before sleeping
+        elapsed = time.time() - start_time
+        if (elapsed + delay) > deadline_seconds:
+            print(f"[GEMINI] Request deadline reached (elapsed: {elapsed:.2f}s, delay: {delay:.2f}s, deadline: {deadline_seconds:.2f}s). Aborting retries.", flush=True)
+            return {
+                "success": False,
+                "status_code": status_code,
+                "is_transient": True,
+                "error": "NoCap AI is temporarily busy. Please try again shortly.",
+                "raw_error": err_msg,
+                "attempts": attempt,
+                "deadline_exceeded": True
+            }
+
+        print(f"[GEMINI] Transient HTTP {status_code} on attempt {attempt}/{max_attempts}. Retrying in {delay:.2f}s...", flush=True)
+        time.sleep(delay)
+
+    return {
+        "success": False,
+        "status_code": last_status_code,
+        "is_transient": True,
+        "error": "NoCap AI is temporarily busy. Please try again shortly.",
+        "raw_error": last_error_msg,
+        "attempts": max_attempts
+    }
 
 
 def call_ollama(messages: list) -> dict:
@@ -1369,12 +1612,49 @@ def chat():
 
     if not ai_res.get("success"):
         err_msg = ai_res.get("error", "AI provider unavailable.")
-        return jsonify(sanitize_json_value({
-            "success": False,
-            "error": "AI provider unavailable",
-            "message": err_msg,
-            "reply": f"NoCap AI error: {err_msg}"
-        })), 500
+        raw_err = ai_res.get("raw_error", err_msg)
+        is_transient = ai_res.get("is_transient", False)
+        status_code = ai_res.get("status_code", 503 if is_transient else 500)
+
+        # Friendly user-facing message for high-demand or rate limits
+        if is_transient or status_code in (429, 503):
+            friendly_msg = "NoCap AI is temporarily busy. Please try again shortly."
+        else:
+            friendly_msg = err_msg
+
+        # If verified historical analysis is available, return it to the user without deducting credits (Req 5 & 6)
+        if target_ticker and card_data:
+            print(f"[CHAT] Gemini unavailable ({status_code}), delivering verified historical analysis with zero credit deduction.", flush=True)
+            return jsonify(sanitize_json_value({
+                "success": True,
+                "ai_unavailable": True,
+                "action_type": action_type,
+                "credit_cost": credit_cost,
+                "credits_deducted": 0,
+                "credits_remaining": credits_balance,
+                "ticker": target_ticker,
+                "company_name": card_data.get("company_name", company_name or target_ticker),
+                "card_data": card_data,
+                "analysis_data": analysis_data,
+                "historical_stakes": stakes_info if stakes_info else None,
+                "reply": (
+                    f"⚠️ NoCap AI explanation is temporarily unavailable ({friendly_msg})\n\n"
+                    "Verified historical stock drop statistics and forward returns from market records are displayed above."
+                ),
+                "message": friendly_msg
+            })), 200
+        else:
+            # Conversational or unresolvable query without historical card data -> structured JSON error (Req 4 & 6)
+            http_status = status_code if status_code in (429, 503) else (503 if is_transient else 500)
+            return jsonify(sanitize_json_value({
+                "success": False,
+                "error": "AI provider unavailable",
+                "status_code": http_status,
+                "message": friendly_msg,
+                "reply": f"NoCap AI error: {friendly_msg}",
+                "credits_deducted": 0,
+                "credits_remaining": credits_balance
+            })), http_status
 
     reply = ai_res.get("reply", "")
 
