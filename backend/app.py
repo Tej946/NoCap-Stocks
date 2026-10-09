@@ -1267,6 +1267,10 @@ def call_gemini(
             "error": "GEMINI_API_KEY is not configured in backend environment. Please configure GEMINI_API_KEY in Render secrets."
         }
 
+    # In production on Render (gunicorn default timeout 30s), bound deadline to 24s to return graceful fallback
+    if is_production_environment() and deadline_seconds > 24.0:
+        deadline_seconds = 24.0
+
     model_name = (model.strip() if model else "") or get_configured_gemini_model()
     max_attempts = max_retries + 1
     start_time = time.time()
