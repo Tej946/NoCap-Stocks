@@ -36,10 +36,17 @@ function resolveApiBaseUrl() {
 
     // 2. Local storage override (allows developer switching in browser console)
     try {
+        const storedUrl = localStorage.getItem('nocap_api_url');
+        if (storedUrl && storedUrl.startsWith('http')) {
+            // Automatically purge deprecated old backend URL from local storage
+            if (storedUrl.includes('nocap-stocks-api.onrender.com')) {
+                localStorage.removeItem('nocap_api_url');
+            } else {
+                return storedUrl.replace(/\/$/, '');
+            }
+        }
         const storedEnv = localStorage.getItem('nocap_api_env');
         if (storedEnv && ENV_CONFIG[storedEnv]) return ENV_CONFIG[storedEnv];
-        const storedUrl = localStorage.getItem('nocap_api_url');
-        if (storedUrl && storedUrl.startsWith('http')) return storedUrl.replace(/\/$/, '');
     } catch (_) {}
 
     // 3. Domain-based detection:
@@ -2202,11 +2209,11 @@ async function handleChatSubmit(e) {
             credits: currentCredits
         };
 
-        // 3. Send POST /api/chat with timeout protection
+        // 3. Send POST /api/chat with timeout protection (120s for cold standby + deep analysis)
         let res;
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
 
             res = await fetch(CHAT_URL, {
                 method: 'POST',
@@ -2219,9 +2226,14 @@ async function handleChatSubmit(e) {
             });
             clearTimeout(timeoutId);
         } catch (fetchErr) {
-            const errMsg = fetchErr.name === 'AbortError'
-                ? 'Request timed out after 60 seconds.'
-                : (fetchErr.message || 'Network connection failed.');
+            let errMsg;
+            if (fetchErr.name === 'AbortError') {
+                errMsg = 'Request timed out after 120 seconds. The backend may be waking up from cold standby (Render free tier takes ~50s). Please try again.';
+            } else if (fetchErr.message === 'Failed to fetch') {
+                errMsg = 'Connection failed (Failed to fetch). The backend service may be starting up or temporarily unreachable. Please retry in a few moments.';
+            } else {
+                errMsg = fetchErr.message || 'Network connection failed.';
+            }
             appendChatMessage('ai', `NoCap AI error: ${errMsg}`);
             return;
         }

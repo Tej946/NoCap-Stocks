@@ -50,6 +50,9 @@ app = Flask(__name__)
 # -----------------------------------------------------------------------
 _DEFAULT_CORS_ORIGINS = [
     "https://nocap-stocks.onrender.com",
+    "http://nocap-stocks.onrender.com",
+    "https://nocap-stocks-tq26.onrender.com",
+    "http://nocap-stocks-tq26.onrender.com",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
     "http://127.0.0.1:8000",
