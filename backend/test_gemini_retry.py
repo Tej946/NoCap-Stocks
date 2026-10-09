@@ -265,5 +265,44 @@ class TestGeminiRetryLogic(unittest.TestCase):
         self.assertEqual(data["credits_deducted"], 0)
         self.assertEqual(data["credits_remaining"], 500)
 
+    def test_default_model_selection(self):
+        """Verifies default model is gemini-3.8-flash when GEMINI_MODEL is unset."""
+        from app import get_configured_gemini_model, DEFAULT_GEMINI_MODEL
+        self.assertEqual(DEFAULT_GEMINI_MODEL, "gemini-3.8-flash")
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(get_configured_gemini_model(), "gemini-3.8-flash")
+
+    def test_env_gemini_model_selection(self):
+        """Verifies GEMINI_MODEL environment variable selects candidate model (e.g. gemini-3.7-flash)."""
+        from app import get_configured_gemini_model
+        with patch.dict(os.environ, {"GEMINI_MODEL": "gemini-3.7-flash"}):
+            self.assertEqual(get_configured_gemini_model(), "gemini-3.7-flash")
+
+    @patch("app.get_gemini_api_key", return_value="fake_api_key")
+    @patch("app._execute_gemini_single_attempt")
+    def test_call_gemini_with_explicit_candidate_model(self, mock_exec, mock_key):
+        """Verifies call_gemini correctly passes candidate model gemini-3.7-flash to single attempt executor."""
+        mock_exec.return_value = {
+            "success": True,
+            "reply": "Apple has demonstrated resilience.",
+            "model": "gemini-3.7-flash"
+        }
+        res = call_gemini("sys prompt", "user prompt", model="gemini-3.7-flash")
+        self.assertTrue(res["success"])
+        self.assertEqual(mock_exec.call_args[1]["model_name"], "gemini-3.7-flash")
+
+    @patch("app.get_gemini_api_key", return_value="fake_api_key")
+    @patch("app.get_selected_provider", return_value="gemini")
+    def test_api_ai_status_reports_configured_model(self, mock_provider, mock_key):
+        """Verifies /api/ai/status accurately reports configured model and candidate models."""
+        with patch.dict(os.environ, {"GEMINI_MODEL": "gemini-3.8-flash"}):
+            res = self.client.get("/api/ai/status")
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertEqual(data["provider"], "gemini")
+            self.assertTrue(data["available"])
+            self.assertEqual(data["model"], "gemini-3.8-flash")
+            self.assertIn("gemini-3.7-flash", data.get("candidate_models", []))
+
 if __name__ == "__main__":
     unittest.main()

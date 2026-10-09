@@ -770,6 +770,17 @@ def get_selected_provider() -> str:
     # Default local development uses Ollama / Gemma 3
     return "ollama"
 
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+SUPPORTED_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash"]
+
+def get_configured_gemini_model() -> str:
+    """
+    Returns the configured Gemini model from server environment variable GEMINI_MODEL.
+    Defaults to gemini-3.8-flash if not explicitly set.
+    """
+    model = os.environ.get("GEMINI_MODEL", "").strip()
+    return model if model else DEFAULT_GEMINI_MODEL
+
 @app.route("/api/ai/status", methods=["GET"])
 def get_ai_status():
     """
@@ -778,7 +789,7 @@ def get_ai_status():
     """
     provider = get_selected_provider()
     gemini_key = get_gemini_api_key()
-    gemini_model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    gemini_model = get_configured_gemini_model()
     gemma_model = os.environ.get("GEMMA_MODEL", "gemma3:4b").strip() or "gemma3:4b"
     ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 
@@ -786,7 +797,9 @@ def get_ai_status():
         return jsonify({
             "provider": "gemini",
             "available": bool(gemini_key),
-            "model": gemini_model
+            "model": gemini_model,
+            "default_model": DEFAULT_GEMINI_MODEL,
+            "candidate_models": SUPPORTED_GEMINI_MODELS
         }), 200
     else:
         # Check Ollama connectivity for local dev
@@ -1233,7 +1246,8 @@ def call_gemini(
     sys_prompt: str,
     user_prompt: str,
     max_retries: int = 3,
-    deadline_seconds: float = 60.0
+    deadline_seconds: float = 60.0,
+    model: str | None = None
 ) -> dict:
     """
     Invokes Google Gemini API with robust retry for transient errors (HTTP 503, 429, 5xx).
@@ -1253,7 +1267,7 @@ def call_gemini(
             "error": "GEMINI_API_KEY is not configured in backend environment. Please configure GEMINI_API_KEY in Render secrets."
         }
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    model_name = (model.strip() if model else "") or get_configured_gemini_model()
     max_attempts = max_retries + 1
     start_time = time.time()
     last_status_code = 500
@@ -1401,7 +1415,7 @@ def call_ollama(messages: list) -> dict:
         return {"success": False, "error": f"Local AI error: {str(e)}"}
 
 
-def ask_ai(sys_prompt: str, user_prompt: str, messages: list) -> dict:
+def ask_ai(sys_prompt: str, user_prompt: str, messages: list, model: str | None = None) -> dict:
     """
     Dispatches reasoning request to either Gemini (production) or Ollama (local development).
     """
@@ -1411,7 +1425,7 @@ def ask_ai(sys_prompt: str, user_prompt: str, messages: list) -> dict:
     print("[CHAT] AI request started", flush=True)
 
     if selected_provider == "gemini":
-        result = call_gemini(sys_prompt, user_prompt)
+        result = call_gemini(sys_prompt, user_prompt, model=model)
     else:
         result = call_ollama(messages)
 
@@ -1433,6 +1447,11 @@ def chat():
     window_days = int(payload.get("window_days", 5))
     years = int(payload.get("years", 10))
     credits_balance = int(payload.get("credits", 500))
+
+    # Optional candidate model override for testing / evaluation
+    req_model = (payload.get("model") or request.headers.get("X-Gemini-Model", "")).strip() or None
+    if req_model and req_model not in SUPPORTED_GEMINI_MODELS:
+        req_model = None
 
     if not message:
         return jsonify(sanitize_json_value({
@@ -1608,7 +1627,7 @@ def chat():
         {"role": "user", "content": user_prompt}
     ]
 
-    ai_res = ask_ai(sys_prompt, user_prompt, messages)
+    ai_res = ask_ai(sys_prompt, user_prompt, messages, model=req_model)
 
     if not ai_res.get("success"):
         err_msg = ai_res.get("error", "AI provider unavailable.")
@@ -1637,6 +1656,7 @@ def chat():
                 "card_data": card_data,
                 "analysis_data": analysis_data,
                 "historical_stakes": stakes_info if stakes_info else None,
+                "model": ai_res.get("model", req_model or get_configured_gemini_model()),
                 "reply": (
                     f"⚠️ NoCap AI explanation is temporarily unavailable ({friendly_msg})\n\n"
                     "Verified historical stock drop statistics and forward returns from market records are displayed above."
@@ -1650,6 +1670,7 @@ def chat():
                 "success": False,
                 "error": "AI provider unavailable",
                 "status_code": http_status,
+                "model": ai_res.get("model", req_model or get_configured_gemini_model()),
                 "message": friendly_msg,
                 "reply": f"NoCap AI error: {friendly_msg}",
                 "credits_deducted": 0,
@@ -1668,9 +1689,89 @@ def chat():
         "company_name": card_data.get("company_name", company_name or target_ticker) if card_data else (company_name or target_ticker),
         "card_data": card_data if card_data else None,
         "reply": reply,
+        "model": ai_res.get("model", req_model or get_configured_gemini_model()),
         "historical_stakes": stakes_info if stakes_info else None,
         "analysis_data": analysis_data
     })), 200
+
+
+@app.route("/api/ai/test-model", methods=["POST"])
+def test_ai_candidate_model():
+    """
+    Tests and benchmarks a candidate Gemini model against verified historical analysis context.
+    Does not modify server-wide default model.
+    Never exposes API keys or secrets.
+    """
+    payload = request.get_json() or {}
+    model_candidate = payload.get("model", "gemini-3.7-flash").strip()
+    ticker = payload.get("ticker", "AAPL").strip().upper()
+    drop_threshold = float(payload.get("drop_threshold", 10.0))
+    window_days = int(payload.get("window_days", 5))
+    years = int(payload.get("years", 10))
+
+    if model_candidate not in SUPPORTED_GEMINI_MODELS:
+        return jsonify({
+            "success": False,
+            "error": f"Model '{model_candidate}' is not in supported models: {SUPPORTED_GEMINI_MODELS}"
+        }), 400
+
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return jsonify({
+            "success": False,
+            "error": "Gemini API key is not configured in backend environment."
+        }), 503
+
+    start_time = time.time()
+    try:
+        analysis_data = analyze_stock_drops(ticker, drop_threshold, window_days, years)
+        company_info = get_company_info(ticker) or {}
+        c_name = company_info.get("company_name", ticker)
+        events = analysis_data.get("total_events_found", 0)
+        stats = analysis_data.get("summary_statistics", {})
+
+        s30 = stats.get("30_days", {})
+        s90 = stats.get("90_days", {})
+        s180 = stats.get("180_days", {})
+
+        sys_prompt = (
+            "You are NoCap AI, the historical stock analysis assistant for NoCap Stocks.\n"
+            "STRICT RULES:\n"
+            "1. Explain historical data ONLY based strictly on verified historical facts provided.\n"
+            "2. Never hallucinate financial data, statistics, or future predictions.\n"
+            "3. Do NOT provide buy, sell, or hold recommendations."
+        )
+        user_prompt = (
+            f"Company: {c_name} ({ticker})\n"
+            f"Parameters: {drop_threshold}% drop within {window_days} trading days over {years} years.\n"
+            f"Total historical drop events: {events}\n"
+            f"30-day stats: {s30}\n"
+            f"90-day stats: {s90}\n"
+            f"180-day stats: {s180}\n"
+            f"Explain the historical price behavior after these drops based strictly on the verified facts above."
+        )
+
+        res = call_gemini(sys_prompt, user_prompt, model=model_candidate, max_retries=3, deadline_seconds=60.0)
+        latency = time.time() - start_time
+
+        return jsonify(sanitize_json_value({
+            "success": res.get("success", False),
+            "model": model_candidate,
+            "ticker": ticker,
+            "latency_seconds": round(latency, 3),
+            "attempts": res.get("attempts", 1),
+            "reply": res.get("reply", ""),
+            "error": res.get("error"),
+            "status_code": res.get("status_code", 200 if res.get("success") else 500)
+        })), 200 if res.get("success") else (res.get("status_code", 500))
+    except Exception as e:
+        latency = time.time() - start_time
+        return jsonify({
+            "success": False,
+            "model": model_candidate,
+            "latency_seconds": round(latency, 3),
+            "error": str(e)
+        }), 500
 
 
 if __name__ == "__main__":
