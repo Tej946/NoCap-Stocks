@@ -70,3 +70,61 @@ CREATE POLICY "Allow full access for service_role on stock_prices" ON public.sto
 DROP POLICY IF EXISTS "Allow public read on stock_prices" ON public.stock_prices;
 CREATE POLICY "Allow public read on stock_prices" ON public.stock_prices
     FOR SELECT TO anon, authenticated USING (true);
+
+-- 7. User Profiles & AI Credits Table (Row Level Security protected)
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT,
+    full_name TEXT,
+    credits INTEGER NOT NULL DEFAULT 500,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
+
+-- Grants on profiles
+GRANT ALL ON TABLE public.profiles TO postgres, service_role, authenticated;
+GRANT SELECT ON TABLE public.profiles TO anon;
+
+-- Row Level Security on profiles
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile" ON public.profiles
+    FOR SELECT TO authenticated
+    USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Service role full access on profiles" ON public.profiles;
+CREATE POLICY "Service role full access on profiles" ON public.profiles
+    FOR ALL TO service_role
+    USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can update own profile info" ON public.profiles;
+CREATE POLICY "Users can update own profile info" ON public.profiles
+    FOR UPDATE TO authenticated
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id);
+
+-- 8. Auto-provision profile trigger when a new user signs up in auth.users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, credits)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'full_name', ''),
+    COALESCE((new.raw_user_meta_data->>'credits')::integer, 500)
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET email = EXCLUDED.email,
+        full_name = EXCLUDED.full_name;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

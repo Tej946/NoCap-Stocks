@@ -15,7 +15,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import yfinance as yf
 from analysis import analyze_stock_drops
-from supabase_client import get_supabase_client
+from supabase_client import get_supabase_client, SUPABASE_URL
 from global_catalog import (
     GLOBAL_COMPANIES,
     CATALOG_BY_TICKER,
@@ -24,6 +24,16 @@ from global_catalog import (
     get_company_by_ticker,
     get_supported_countries,
     get_supported_exchanges
+)
+from auth_utils import (
+    extract_bearer_token,
+    verify_token,
+    get_user_profile,
+    deduct_user_credits,
+    reset_user_credits,
+    signup_user,
+    login_user,
+    request_password_reset,
 )
 
 # Load environment variables from .env
@@ -693,6 +703,131 @@ def test_supabase_connection():
             "error": err_msg,
             "message": "Supabase connection failed"
         }), 200
+
+# ==============================================================================
+# AUTHENTICATION & USER PROFILE REST ENDPOINTS (SUPABASE AUTH)
+# ==============================================================================
+
+@app.route("/api/auth/config", methods=["GET"])
+def auth_config():
+    """Returns public auth configuration (never exposes service role key)."""
+    anon_key = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_PUBLIC_KEY") or ""
+    return jsonify({
+        "success": True,
+        "supabase_url": SUPABASE_URL,
+        "supabase_anon_key": anon_key,
+        "auth_enabled": True
+    }), 200
+
+@app.route("/api/auth/signup", methods=["POST"])
+def auth_signup():
+    payload = request.get_json() or {}
+    email = payload.get("email", "").strip()
+    password = payload.get("password", "")
+    full_name = payload.get("full_name", "").strip()
+
+    ok, data, err_msg = signup_user(email, password, full_name)
+    if not ok:
+        return jsonify({
+            "success": False,
+            "error": "Registration failed",
+            "message": err_msg
+        }), 400
+
+    return jsonify({
+        "success": True,
+        "message": "Account created successfully",
+        **data
+    }), 201
+
+@app.route("/api/auth/login", methods=["POST"])
+def auth_login():
+    payload = request.get_json() or {}
+    email = payload.get("email", "").strip()
+    password = payload.get("password", "")
+
+    ok, data, err_msg = login_user(email, password)
+    if not ok:
+        return jsonify({
+            "success": False,
+            "error": "Authentication failed",
+            "message": err_msg
+        }), 401
+
+    return jsonify({
+        "success": True,
+        "message": "Logged in successfully",
+        **data
+    }), 200
+
+@app.route("/api/auth/logout", methods=["POST"])
+def auth_logout():
+    raw_token = extract_bearer_token(request.headers.get("Authorization"))
+    if raw_token:
+        try:
+            client = get_supabase_client()
+            client.auth.sign_out(raw_token)
+        except Exception:
+            pass
+    return jsonify({
+        "success": True,
+        "message": "Logged out successfully"
+    }), 200
+
+@app.route("/api/auth/reset-password", methods=["POST"])
+def auth_reset_password():
+    payload = request.get_json() or {}
+    email = payload.get("email", "").strip()
+
+    ok, msg = request_password_reset(email)
+    if not ok:
+        return jsonify({
+            "success": False,
+            "error": "Password reset request failed",
+            "message": msg
+        }), 400
+
+    return jsonify({
+        "success": True,
+        "message": msg
+    }), 200
+
+@app.route("/api/auth/me", methods=["GET"])
+def auth_me():
+    raw_token = extract_bearer_token(request.headers.get("Authorization"))
+    user = verify_token(raw_token)
+    if not user:
+        return jsonify({
+            "success": False,
+            "error": "Unauthorized",
+            "message": "Valid session token is required."
+        }), 401
+
+    profile = get_user_profile(user["id"], email=user.get("email", ""), default_meta=user.get("user_metadata"))
+    return jsonify({
+        "success": True,
+        "user": user,
+        "profile": profile
+    }), 200
+
+@app.route("/api/auth/reset-credits", methods=["POST"])
+def auth_reset_credits():
+    raw_token = extract_bearer_token(request.headers.get("Authorization"))
+    user = verify_token(raw_token)
+    if not user:
+        return jsonify({
+            "success": False,
+            "error": "Unauthorized",
+            "message": "Authentication required."
+        }), 401
+
+    ok, new_balance = reset_user_credits(user["id"], 500)
+    return jsonify({
+        "success": True,
+        "message": "AI credits reset to 500",
+        "credits": new_balance
+    }), 200
+
 
 def is_production_environment() -> bool:
     """
@@ -1450,7 +1585,33 @@ def chat():
     drop_threshold = float(payload.get("drop_threshold", 10))
     window_days = int(payload.get("window_days", 5))
     years = int(payload.get("years", 10))
-    credits_balance = int(payload.get("credits", 500))
+
+    # Authenticate user from Authorization header (Supabase Auth)
+    raw_token = extract_bearer_token(request.headers.get("Authorization"))
+    auth_user = None
+
+    if raw_token:
+        auth_user = verify_token(raw_token)
+        if not auth_user:
+            return jsonify(sanitize_json_value({
+                "success": False,
+                "error": "Unauthorized",
+                "message": "Invalid or expired session token. Please log in again.",
+                "requires_auth": True
+            })), 401
+        # Fetch user's TRUE server-side credit balance from Supabase database
+        user_profile = get_user_profile(auth_user["id"], email=auth_user.get("email", ""), default_meta=auth_user.get("user_metadata"))
+        credits_balance = int(user_profile.get("credits", 500))
+    elif os.environ.get("REQUIRE_AUTH_FOR_CHAT", "false").lower() == "true" or request.headers.get("X-Enforce-Auth") == "true":
+        return jsonify(sanitize_json_value({
+            "success": False,
+            "error": "Unauthorized",
+            "message": "Please log in to your NoCap Stocks account to use NoCap AI terminal.",
+            "requires_auth": True
+        })), 401
+    else:
+        # Fallback for unauthenticated guest / testing requests
+        credits_balance = int(payload.get("credits", 500))
 
     # Optional candidate model override for testing / evaluation
     req_model = (payload.get("model") or request.headers.get("X-Gemini-Model", "")).strip() or None
@@ -1681,6 +1842,20 @@ def chat():
                 "credits_remaining": credits_balance
             })), http_status
 
+    # Deduct credits securely on the server for authenticated user
+    if auth_user:
+        deduct_ok, remaining_credits, deduct_err = deduct_user_credits(auth_user["id"], credit_cost)
+        if not deduct_ok:
+            return jsonify(sanitize_json_value({
+                "success": False,
+                "error": "Insufficient credits",
+                "message": deduct_err,
+                "insufficient_credits": True,
+                "credits_remaining": remaining_credits
+            })), 200
+    else:
+        remaining_credits = max(0, credits_balance - credit_cost)
+
     reply = ai_res.get("reply", "")
 
     return jsonify(sanitize_json_value({
@@ -1688,7 +1863,7 @@ def chat():
         "action_type": action_type,
         "credit_cost": credit_cost,
         "credits_deducted": credit_cost,
-        "credits_remaining": max(0, credits_balance - credit_cost),
+        "credits_remaining": remaining_credits,
         "ticker": target_ticker,
         "company_name": card_data.get("company_name", company_name or target_ticker) if card_data else (company_name or target_ticker),
         "card_data": card_data if card_data else None,

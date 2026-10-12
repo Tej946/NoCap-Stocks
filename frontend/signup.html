@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up — NoCap Stocks Terminal</title>
+    <meta name="description" content="Create a NoCap Stocks account with 500 AI credits for institutional-grade historical stock drawdown analysis.">
+    
+    <!-- Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Base Stylesheet & Auth Styles -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-page-shell">
+    <!-- Top Navigation Strip -->
+    <nav class="auth-nav-strip">
+        <a href="index.html" class="auth-back-link">
+            <span>←</span> Back to Terminal
+        </a>
+        <div class="auth-brand-badge">
+            <div class="terminal-logo-box">NC</div>
+            <span class="brand-text-main">NoCap</span>
+            <span class="brand-text-badge">STOCKS</span>
+        </div>
+        <div style="width: 110px;"></div> <!-- Spacer for optical centering -->
+    </nav>
+
+    <!-- Main Auth Card Container -->
+    <main class="auth-container">
+        <div class="auth-card">
+            <!-- Header -->
+            <div class="auth-header">
+                <h1 class="auth-title">Create Terminal Account</h1>
+                <p class="auth-subtitle">Join NoCap Stocks. 500 free AI credits allocated instantly.</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="auth-tabs" role="tablist">
+                <a href="login.html" class="auth-tab-btn" role="tab" aria-selected="false">Log In</a>
+                <a href="signup.html" class="auth-tab-btn active" role="tab" aria-selected="true">Sign Up</a>
+            </div>
+
+            <!-- Alert Notification Banner -->
+            <div id="signup-alert" class="auth-alert hidden" role="alert"></div>
+
+            <!-- Sign Up Form -->
+            <form id="signup-form" novalidate>
+                <!-- Full Name Field -->
+                <div class="auth-form-group">
+                    <label for="signup-name" class="auth-label">Full Name</label>
+                    <div class="auth-input-wrapper">
+                        <input 
+                            type="text" 
+                            id="signup-name" 
+                            name="full_name" 
+                            class="auth-input" 
+                            placeholder="Alex Morgan" 
+                            autocomplete="name" 
+                            required 
+                            autofocus
+                        >
+                    </div>
+                </div>
+
+                <!-- Email Field -->
+                <div class="auth-form-group">
+                    <label for="signup-email" class="auth-label">Email Address</label>
+                    <div class="auth-input-wrapper">
+                        <input 
+                            type="email" 
+                            id="signup-email" 
+                            name="email" 
+                            class="auth-input" 
+                            placeholder="name@example.com" 
+                            autocomplete="email" 
+                            required
+                        >
+                    </div>
+                </div>
+
+                <!-- Password Field with Show/Hide Toggle & Strength Meter -->
+                <div class="auth-form-group">
+                    <label for="signup-password" class="auth-label">Password</label>
+                    <div class="auth-input-wrapper">
+                        <input 
+                            type="password" 
+                            id="signup-password" 
+                            name="password" 
+                            class="auth-input has-toggle" 
+                            placeholder="Min. 6 characters" 
+                            autocomplete="new-password" 
+                            required
+                        >
+                        <button 
+                            type="button" 
+                            class="auth-toggle-pwd-btn" 
+                            data-target="signup-password" 
+                            aria-label="Show password" 
+                            title="Show/Hide Password"
+                        >👁️</button>
+                    </div>
+                    <!-- Password Strength Meter -->
+                    <div class="pwd-strength-container" id="pwd-strength-container">
+                        <div class="pwd-strength-bar">
+                            <div class="pwd-strength-fill" id="pwd-strength-fill"></div>
+                        </div>
+                        <div class="pwd-strength-text">
+                            <span id="pwd-strength-label">Security strength</span>
+                            <span id="pwd-strength-text">Min 6 characters</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Confirm Password Field with Match Indicator -->
+                <div class="auth-form-group">
+                    <label for="signup-confirm-password" class="auth-label">Confirm Password</label>
+                    <div class="auth-input-wrapper">
+                        <input 
+                            type="password" 
+                            id="signup-confirm-password" 
+                            name="confirm_password" 
+                            class="auth-input has-toggle" 
+                            placeholder="Re-enter password" 
+                            autocomplete="new-password" 
+                            required
+                        >
+                        <button 
+                            type="button" 
+                            class="auth-toggle-pwd-btn" 
+                            data-target="signup-confirm-password" 
+                            aria-label="Show confirm password" 
+                            title="Show/Hide Password"
+                        >👁️</button>
+                    </div>
+                    <span id="pwd-match-hint" class="pwd-match-hint hidden"></span>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="signup-submit-btn" class="auth-submit-btn">
+                    <span>Create Terminal Account</span>
+                    <span>→</span>
+                </button>
+            </form>
+
+            <!-- Footer Switcher -->
+            <div class="auth-footer">
+                Already have an account? 
+                <a href="login.html" class="auth-link font-semibold">Log In here</a>
+                <div>
+                    <span class="auth-credits-highlight">✦ 500 AI Credits Credited on Registration</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Page Footer Disclaimer -->
+    <footer class="auth-page-footer">
+        NoCap Stocks — Empirical historical drawdown distributions. No investment advice.
+    </footer>
+
+    <!-- JavaScript Module -->
+    <script src="auth.js"></script>
+    <script>
+        // Page specific controller
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('signup-form');
+            const alertEl = document.getElementById('signup-alert');
+            const submitBtn = document.getElementById('signup-submit-btn');
+            const pwdInput = document.getElementById('signup-password');
+            const confirmInput = document.getElementById('signup-confirm-password');
+            const strengthFill = document.getElementById('pwd-strength-fill');
+            const strengthText = document.getElementById('pwd-strength-text');
+            const matchHint = document.getElementById('pwd-match-hint');
+
+            // If user is already authenticated with a valid token, auto-redirect to dashboard
+            if (getAuthToken()) {
+                const params = new URLSearchParams(window.location.search);
+                const redirectTarget = params.get('redirect') || 'index.html';
+                window.location.href = redirectTarget;
+                return;
+            }
+
+            // Real-time password strength update
+            pwdInput?.addEventListener('input', () => {
+                const strength = calculatePasswordStrength(pwdInput.value);
+                if (strengthFill) {
+                    strengthFill.style.width = `${strength.pct}%`;
+                    strengthFill.style.backgroundColor = strength.color;
+                }
+                if (strengthText) {
+                    strengthText.textContent = strength.text;
+                    strengthText.style.color = strength.color;
+                }
+                checkPasswordMatch();
+            });
+
+            // Real-time confirm password match check
+            function checkPasswordMatch() {
+                if (!confirmInput || !pwdInput) return;
+                const p1 = pwdInput.value;
+                const p2 = confirmInput.value;
+                if (!p2) {
+                    matchHint.classList.add('hidden');
+                    confirmInput.classList.remove('is-valid', 'is-invalid');
+                    return;
+                }
+                matchHint.classList.remove('hidden');
+                if (p1 === p2) {
+                    matchHint.textContent = '✓ Passwords match';
+                    matchHint.className = 'pwd-match-hint match';
+                    confirmInput.classList.add('is-valid');
+                    confirmInput.classList.remove('is-invalid');
+                } else {
+                    matchHint.textContent = '✕ Passwords do not match';
+                    matchHint.className = 'pwd-match-hint mismatch';
+                    confirmInput.classList.add('is-invalid');
+                    confirmInput.classList.remove('is-valid');
+                }
+            }
+
+            confirmInput?.addEventListener('input', checkPasswordMatch);
+
+            form?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideAlert(alertEl);
+
+                const fullName = (document.getElementById('signup-name')?.value || '').trim();
+                const email = (document.getElementById('signup-email')?.value || '').trim();
+                const password = pwdInput?.value || '';
+                const confirmPassword = confirmInput?.value || '';
+
+                if (!fullName) {
+                    showAlert(alertEl, 'Please enter your full name.');
+                    document.getElementById('signup-name')?.focus();
+                    return;
+                }
+                if (!email) {
+                    showAlert(alertEl, 'Please enter a valid email address.');
+                    document.getElementById('signup-email')?.focus();
+                    return;
+                }
+                if (!password || password.length < 6) {
+                    showAlert(alertEl, 'Password must be at least 6 characters long.');
+                    pwdInput?.focus();
+                    return;
+                }
+                if (password !== confirmPassword) {
+                    showAlert(alertEl, 'Passwords do not match. Please verify your confirm password.');
+                    confirmInput?.focus();
+                    return;
+                }
+
+                setButtonLoading(submitBtn, true, 'Creating Account...');
+
+                const { ok, data } = await apiSignUp(email, password, fullName);
+                setButtonLoading(submitBtn, false);
+
+                if (ok && data.success) {
+                    showAlert(alertEl, 'Account created successfully! 500 AI credits allocated. Redirecting to Terminal...', 'success');
+                    setAuthSession(data.access_token, data.refresh_token, data.user, data.profile);
+                    
+                    const params = new URLSearchParams(window.location.search);
+                    const redirectTarget = params.get('redirect') || 'index.html';
+                    setTimeout(() => {
+                        window.location.href = redirectTarget;
+                    }, 800);
+                } else {
+                    const errorMsg = data.message || data.error || 'Registration failed. Please try again.';
+                    showAlert(alertEl, errorMsg, 'error');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

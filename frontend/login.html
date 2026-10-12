@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log In — NoCap Stocks Terminal</title>
+    <meta name="description" content="Sign in to your NoCap Stocks account to access empirical historical stock drop analytics and AI assistant.">
+    
+    <!-- Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Base Stylesheet & Auth Styles -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-page-shell">
+    <!-- Top Navigation Strip -->
+    <nav class="auth-nav-strip">
+        <a href="index.html" class="auth-back-link">
+            <span>←</span> Back to Terminal
+        </a>
+        <div class="auth-brand-badge">
+            <div class="terminal-logo-box">NC</div>
+            <span class="brand-text-main">NoCap</span>
+            <span class="brand-text-badge">STOCKS</span>
+        </div>
+        <div style="width: 110px;"></div> <!-- Spacer for optical centering -->
+    </nav>
+
+    <!-- Main Auth Card Container -->
+    <main class="auth-container">
+        <div class="auth-card">
+            <!-- Header -->
+            <div class="auth-header">
+                <h1 class="auth-title">Log In to Terminal</h1>
+                <p class="auth-subtitle">Access your verified drawdown statistics and AI assistant.</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="auth-tabs" role="tablist">
+                <a href="login.html" class="auth-tab-btn active" role="tab" aria-selected="true">Log In</a>
+                <a href="signup.html" class="auth-tab-btn" role="tab" aria-selected="false">Sign Up</a>
+            </div>
+
+            <!-- Alert Notification Banner -->
+            <div id="login-alert" class="auth-alert hidden" role="alert"></div>
+
+            <!-- Log In Form -->
+            <form id="login-form" novalidate>
+                <!-- Email Field -->
+                <div class="auth-form-group">
+                    <label for="login-email" class="auth-label">Email Address</label>
+                    <div class="auth-input-wrapper">
+                        <input 
+                            type="email" 
+                            id="login-email" 
+                            name="email" 
+                            class="auth-input" 
+                            placeholder="name@example.com" 
+                            autocomplete="email" 
+                            required 
+                            autofocus
+                        >
+                    </div>
+                </div>
+
+                <!-- Password Field with Show/Hide Toggle -->
+                <div class="auth-form-group">
+                    <label for="login-password" class="auth-label">Password</label>
+                    <div class="auth-input-wrapper">
+                        <input 
+                            type="password" 
+                            id="login-password" 
+                            name="password" 
+                            class="auth-input has-toggle" 
+                            placeholder="••••••••••••" 
+                            autocomplete="current-password" 
+                            required
+                        >
+                        <button 
+                            type="button" 
+                            class="auth-toggle-pwd-btn" 
+                            data-target="login-password" 
+                            aria-label="Show password" 
+                            title="Show/Hide Password"
+                        >👁️</button>
+                    </div>
+                </div>
+
+                <!-- Remember Me & Forgot Password Row -->
+                <div class="auth-extra-row">
+                    <label class="auth-checkbox-label">
+                        <input type="checkbox" id="login-remember" checked>
+                        <span>Remember session</span>
+                    </label>
+                    <a href="#" id="forgot-password-link" class="auth-link">Forgot password?</a>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="login-submit-btn" class="auth-submit-btn">
+                    <span>Log In to Terminal</span>
+                    <span>→</span>
+                </button>
+            </form>
+
+            <!-- Footer Switcher -->
+            <div class="auth-footer">
+                Don't have an account yet? 
+                <a href="signup.html" class="auth-link font-semibold">Sign Up for NoCap Stocks</a>
+                <div>
+                    <span class="auth-credits-highlight">✦ 500 Starting AI Credits Included</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgot-password-modal" class="auth-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="auth-modal-card">
+            <button type="button" id="close-forgot-modal" class="auth-modal-close-btn" aria-label="Close dialog">✕</button>
+            <h2 id="modal-title" class="auth-title" style="font-size: 16px; margin-bottom: 6px;">Reset Your Password</h2>
+            <p class="auth-subtitle" style="margin-bottom: 16px;">
+                Enter your account email address. We'll send you a secure recovery link to reset your password.
+            </p>
+
+            <div id="forgot-alert" class="auth-alert hidden"></div>
+
+            <form id="forgot-password-form">
+                <div class="auth-form-group">
+                    <label for="forgot-email" class="auth-label">Account Email</label>
+                    <div class="auth-input-wrapper">
+                        <input 
+                            type="email" 
+                            id="forgot-email" 
+                            class="auth-input" 
+                            placeholder="name@example.com" 
+                            required
+                        >
+                    </div>
+                </div>
+                <button type="submit" id="forgot-submit-btn" class="auth-submit-btn">
+                    <span>Send Password Reset Link</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Page Footer Disclaimer -->
+    <footer class="auth-page-footer">
+        NoCap Stocks — No fake predictions. Just historical data.
+    </footer>
+
+    <!-- JavaScript Module -->
+    <script src="auth.js"></script>
+    <script>
+        // Page specific controller
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('login-form');
+            const alertEl = document.getElementById('login-alert');
+            const submitBtn = document.getElementById('login-submit-btn');
+
+            // If user is already authenticated with a valid token, auto-redirect to dashboard
+            if (getAuthToken()) {
+                const params = new URLSearchParams(window.location.search);
+                const redirectTarget = params.get('redirect') || 'index.html';
+                window.location.href = redirectTarget;
+                return;
+            }
+
+            form?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideAlert(alertEl);
+
+                const email = (document.getElementById('login-email')?.value || '').trim();
+                const password = document.getElementById('login-password')?.value || '';
+
+                if (!email) {
+                    showAlert(alertEl, 'Please enter your email address.');
+                    return;
+                }
+                if (!password) {
+                    showAlert(alertEl, 'Please enter your password.');
+                    return;
+                }
+
+                setButtonLoading(submitBtn, true, 'Signing in...');
+
+                const { ok, data } = await apiLogIn(email, password);
+                setButtonLoading(submitBtn, false);
+
+                if (ok && data.success) {
+                    showAlert(alertEl, 'Authenticated successfully. Redirecting...', 'success');
+                    setAuthSession(data.access_token, data.refresh_token, data.user, data.profile);
+                    
+                    const params = new URLSearchParams(window.location.search);
+                    const redirectTarget = params.get('redirect') || 'index.html';
+                    setTimeout(() => {
+                        window.location.href = redirectTarget;
+                    }, 500);
+                } else {
+                    const errorMsg = data.message || data.error || 'Invalid email or password.';
+                    showAlert(alertEl, errorMsg, 'error');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

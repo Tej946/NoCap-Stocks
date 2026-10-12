@@ -712,10 +712,15 @@ function setupEventListeners() {
         });
     }
     if (btnResetCreds) {
-        btnResetCreds.addEventListener('click', () => {
+        btnResetCreds.addEventListener('click', async () => {
             currentCredits = TOTAL_CREDITS;
             updateCreditsUI();
             updateSettingsUI();
+            if (typeof apiGetMe === 'function' && typeof getAuthToken === 'function' && getAuthToken()) {
+                try {
+                    await authFetch('/api/auth/reset-credits', { method: 'POST' });
+                } catch (_) {}
+            }
         });
     }
 
@@ -2215,12 +2220,18 @@ async function handleChatSubmit(e) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 120000);
 
+            const reqHeaders = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+            const authToken = (typeof getAuthToken === 'function') ? getAuthToken() : localStorage.getItem('nocap_access_token');
+            if (authToken) {
+                reqHeaders['Authorization'] = `Bearer ${authToken}`;
+            }
+
             res = await fetch(CHAT_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
+                headers: reqHeaders,
                 body: JSON.stringify(payload),
                 signal: controller.signal
             });
@@ -2254,7 +2265,14 @@ async function handleChatSubmit(e) {
             return;
         }
 
-        // Check if API returned an error status (200, 400, 401, 403, 404, 429, 500, 503)
+        // Check for 401 Unauthorized requirement
+        if (res.status === 401) {
+            const authMsg = (data && data.message) ? data.message : 'Please log in to your NoCap Stocks account to use NoCap AI terminal.';
+            appendChatMessage('ai', `⚠️ ${authMsg}\n\n👉 <a href="login.html" class="auth-link" style="color: #60a5fa; text-decoration: underline;">Log In to Terminal</a> or <a href="signup.html" class="auth-link" style="color: #60a5fa; text-decoration: underline;">Sign Up Free</a> to use 500 AI credits.`);
+            return;
+        }
+
+        // Check if API returned an error status (200, 400, 403, 404, 429, 500, 503)
         if (!res.ok || (data && data.success === false)) {
             const errorMsg = (data && data.message) ? data.message : ((data && typeof data.error === 'string') ? data.error : '') || (data && data.reply) || res.statusText || `HTTP ${res.status} error`;
             appendChatMessage('ai', `NoCap AI error: ${errorMsg}`, {
